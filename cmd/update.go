@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -89,22 +90,24 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	// 4. Restart if running in background
 	pid, pidErr := readPid()
 	if pidErr == nil && processExists(pid) {
-		fmt.Println("Restarting background service...")
-		// Stop old process
+		fmt.Println("Stopping old process...")
 		if p, err := os.FindProcess(pid); err == nil {
 			p.Signal(os.Interrupt)
 		}
+		// Wait for old process to exit
+		for i := 0; i < 20; i++ {
+			if !processExists(pid) {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
 		os.Remove(pidFile())
 
-		// Start new process
-		newCmd := exec.Command(exePath, "start")
-		if err := newCmd.Start(); err != nil {
+		fmt.Println("Starting new version...")
+		if err := runDaemon(); err != nil {
 			log.Printf("Failed to restart: %v", err)
 			fmt.Println("Update complete. Please run 'weclaw start' manually.")
-			return nil
 		}
-		newCmd.Process.Release()
-		fmt.Printf("Restarted (pid=%d)\n", newCmd.Process.Pid)
 	} else {
 		fmt.Println("Update complete. Run 'weclaw start' to start.")
 	}

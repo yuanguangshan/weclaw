@@ -109,9 +109,9 @@ func (m *Monitor) Run(ctx context.Context) error {
 			m.saveBuf()
 		}
 
-		// Process messages
+		// Process messages concurrently — don't block the poll loop
 		for _, msg := range resp.Msgs {
-			m.handler(ctx, m.client, msg)
+			go m.handler(ctx, m.client, msg)
 		}
 	}
 }

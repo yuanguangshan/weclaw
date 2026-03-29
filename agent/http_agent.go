@@ -157,6 +157,24 @@ func (a *HTTPAgent) Chat(ctx context.Context, conversationID string, message str
 	return reply, nil
 }
 
+// ChatWithMedia sends a message with media attachments.
+// For HTTP agents, media is converted to text description (limited support).
+func (a *HTTPAgent) ChatWithMedia(ctx context.Context, conversationID string, message string, media []MediaEntry) (string, error) {
+	// Build enhanced message with media descriptions
+	enhancedMessage := message
+	for _, m := range media {
+		switch m.Type {
+		case "image":
+			enhancedMessage += fmt.Sprintf("\n[图片: %s]", m.URL)
+		case "file":
+			enhancedMessage += fmt.Sprintf("\n[文件: %s (%s)]", m.FileName, m.URL)
+		case "video":
+			enhancedMessage += fmt.Sprintf("\n[视频: %s]", m.URL)
+		}
+	}
+	return a.Chat(ctx, conversationID, enhancedMessage)
+}
+
 func (a *HTTPAgent) buildMessages(conversationID string, message string) []ChatMessage {
 	var messages []ChatMessage
 	if a.systemPrompt != "" {

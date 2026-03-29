@@ -111,8 +111,12 @@ type promptParams struct {
 }
 
 type promptEntry struct {
-	Type string `json:"type"`
-	Text string `json:"text,omitempty"`
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	URL      string `json:"url,omitempty"`
+	Path     string `json:"path,omitempty"`
+	Data     string `json:"data,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
 }
 
 type promptResult struct {
@@ -439,6 +443,235 @@ func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message stri
 				return "", fmt.Errorf("agent returned empty response")
 			}
 			return result, nil
+		}
+	}
+}
+
+// ChatWithMedia sends a message with media attachments and returns the full response.
+func (a *ACPAgent) ChatWithMedia(ctx context.Context, conversationID string, message string, media []MediaEntry) (string, error) {
+	if !a.started {
+		if err := a.Start(ctx); err != nil {
+			return "", err
+		}
+	}
+
+	// Route to codex app-server protocol if applicable
+	if a.protocol == protocolCodexAppServer {
+		return a.chatCodexAppServerWithMedia(ctx, conversationID, message, media)
+	}
+
+	// Get or create session
+	sessionID, isNew, err := a.getOrCreateSession(ctx, conversationID)
+	if err != nil {
+		return "", fmt.Errorf("session error: %w", err)
+	}
+
+	pid := a.cmd.Process.Pid
+	if isNew {
+		log.Printf("[acp] new session created (pid=%d, session=%s, conversation=%s)", pid, sessionID, conversationID)
+	} else {
+		log.Printf("[acp] reusing session (pid=%d, session=%s, conversation=%s)", pid, sessionID, conversationID)
+	}
+
+	// Register notification channel for this session
+	notifyCh := make(chan *sessionUpdate, 256)
+	a.notifyMu.Lock()
+	a.notifyCh[sessionID] = notifyCh
+	a.notifyMu.Unlock()
+
+	defer func() {
+		a.notifyMu.Lock()
+		delete(a.notifyCh, sessionID)
+		a.notifyMu.Unlock()
+	}()
+
+	// Build prompt entries with media
+	prompt := buildPromptEntries(message, media)
+
+	// Send prompt (this blocks until the prompt completes)
+	type promptDoneMsg struct {
+		result json.RawMessage
+		err    error
+	}
+	promptDone := make(chan promptDoneMsg, 1)
+	go func() {
+		result, err := a.call(ctx, "session/prompt", promptParams{
+			SessionID: sessionID,
+			Prompt:    prompt,
+		})
+		if result != nil {
+			log.Printf("[acp] prompt result (session=%s): %s", sessionID, string(result))
+		}
+		promptDone <- promptDoneMsg{result: result, err: err}
+	}()
+
+	// Collect text chunks from notifications
+	var textParts []string
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case update := <-notifyCh:
+			if update.SessionUpdate == "agent_message_chunk" {
+				text := extractChunkText(update)
+				if text != "" {
+					textParts = append(textParts, text)
+				}
+			}
+		case done := <-promptDone:
+			// Drain remaining notifications
+			for {
+				select {
+				case update := <-notifyCh:
+					if update.SessionUpdate == "agent_message_chunk" {
+						text := extractChunkText(update)
+						if text != "" {
+							textParts = append(textParts, text)
+						}
+					}
+				default:
+					goto drainedMedia
+				}
+			}
+		drainedMedia:
+			if done.err != nil {
+				return "", fmt.Errorf("prompt error: %w", done.err)
+			}
+			result := strings.TrimSpace(strings.Join(textParts, ""))
+			if result == "" {
+				// Try extracting from prompt result (some agents return content here)
+				result = extractPromptResultText(done.result)
+			}
+			if result == "" {
+				return "", fmt.Errorf("agent returned empty response")
+			}
+			return result, nil
+		}
+	}
+}
+
+// buildPromptEntries builds prompt entries from message and media.
+func buildPromptEntries(message string, media []MediaEntry) []promptEntry {
+	var entries []promptEntry
+
+	// Add media entries first
+	for _, m := range media {
+		entry := promptEntry{Type: m.Type}
+		switch m.Type {
+		case "image":
+			if m.URL != "" {
+				entry.URL = m.URL
+			} else if m.Path != "" {
+				entry.Path = m.Path
+			}
+		case "file":
+			entry.Type = "file"
+			if m.URL != "" {
+				entry.URL = m.URL
+			} else if m.Path != "" {
+				entry.Path = m.Path
+			}
+			entry.MimeType = m.MIMEType
+		case "video":
+			entry.Type = "video"
+			if m.URL != "" {
+				entry.URL = m.URL
+			} else if m.Path != "" {
+				entry.Path = m.Path
+			}
+		}
+		entries = append(entries, entry)
+	}
+
+	// Add text entry
+	if message != "" {
+		entries = append(entries, promptEntry{Type: "text", Text: message})
+	}
+
+	return entries
+}
+
+// chatCodexAppServerWithMedia handles media for codex app-server protocol.
+func (a *ACPAgent) chatCodexAppServerWithMedia(ctx context.Context, conversationID string, message string, media []MediaEntry) (string, error) {
+	threadID, isNew, err := a.getOrCreateThread(ctx, conversationID)
+	if err != nil {
+		return "", fmt.Errorf("thread error: %w", err)
+	}
+
+	pid := 0
+	a.mu.Lock()
+	if a.cmd != nil && a.cmd.Process != nil {
+		pid = a.cmd.Process.Pid
+	}
+	a.mu.Unlock()
+
+	if isNew {
+		log.Printf("[acp] new thread created (pid=%d, thread=%s, conversation=%s)", pid, threadID, conversationID)
+	} else {
+		log.Printf("[acp] reusing thread (pid=%d, thread=%s, conversation=%s)", pid, threadID, conversationID)
+	}
+
+	// Register turn event channel
+	turnCh := make(chan *codexTurnEvent, 256)
+	a.notifyMu.Lock()
+	a.turnCh[threadID] = turnCh
+	a.notifyMu.Unlock()
+
+	defer func() {
+		a.notifyMu.Lock()
+		delete(a.turnCh, threadID)
+		a.notifyMu.Unlock()
+	}()
+
+	// Build input entries
+	var input []codexUserInput
+	for _, m := range media {
+		input = append(input, codexUserInput{Type: m.Type, Text: m.URL})
+	}
+	if message != "" {
+		input = append(input, codexUserInput{Type: "text", Text: message})
+	}
+
+	// Start turn (call returns quickly with turn info, actual content comes via events)
+	go func() {
+		_, err := a.call(ctx, "turn/start", codexTurnStartParams{
+			ThreadID:       threadID,
+			ApprovalPolicy: "never",
+			Input:          input,
+			SandboxPolicy:  map[string]interface{}{"type": "dangerFullAccess"},
+			Model:          a.model,
+			Cwd:            a.cwd,
+		})
+		if err != nil {
+			// If call itself fails, signal via turn channel
+			turnCh <- &codexTurnEvent{Kind: "error", Text: err.Error()}
+		}
+	}()
+
+	// Collect text from events until turn/completed
+	var textParts []string
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case evt := <-turnCh:
+			if evt.Kind == "error" {
+				return "", fmt.Errorf("turn error: %s", evt.Text)
+			}
+			if evt.Delta != "" {
+				textParts = append(textParts, evt.Delta)
+			}
+			if evt.Text != "" {
+				textParts = append(textParts, evt.Text)
+			}
+			if evt.Kind == "completed" {
+				result := strings.TrimSpace(strings.Join(textParts, ""))
+				if result == "" {
+					return "", fmt.Errorf("agent returned empty response")
+				}
+				return result, nil
+			}
 		}
 	}
 }

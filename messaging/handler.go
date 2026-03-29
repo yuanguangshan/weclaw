@@ -2,8 +2,12 @@ package messaging
 
 import (
 	"context"
+	"crypto/aes"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -286,9 +290,11 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 		}
 	}
 	if text == "" {
-		// Check for image message
-		if img := extractImage(msg); img != nil && h.saveDir != "" {
-			h.handleImageSave(ctx, client, msg, img)
+		// Check for media message (image, file, video)
+		media := h.extractAllMedia(ctx, client, msg)
+		log.Printf("[handler] extracted %d media items from message", len(media))
+		if len(media) > 0 {
+			h.sendMediaToAgent(ctx, client, msg, text, media)
 			return
 		}
 		log.Printf("[handler] received non-text message from %s, skipping", msg.FromUserID)
@@ -810,4 +816,214 @@ func detectImageExt(data []byte) string {
 		return ".bmp"
 	}
 	return ".jpg" // default to jpg for WeChat images
+}
+
+// extractAllMedia extracts all media items (image, file, video) from a message.
+// Downloads CDN media to local files if necessary.
+func (h *Handler) extractAllMedia(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage) []agent.MediaEntry {
+	var media []agent.MediaEntry
+
+	for _, item := range msg.ItemList {
+		switch item.Type {
+		case ilink.ItemTypeImage:
+			if item.ImageItem != nil {
+				entry := agent.MediaEntry{Type: "image"}
+				if item.ImageItem.URL != "" {
+					entry.URL = item.ImageItem.URL
+					log.Printf("[handler] image URL: %s", entry.URL)
+				} else if item.ImageItem.Media != nil && h.saveDir != "" {
+					// CDN media - download and decrypt
+					log.Printf("[handler] image has CDN media: encrypt_param=%s", item.ImageItem.Media.EncryptQueryParam)
+					localPath, err := downloadCDNMedia(ctx, client, item.ImageItem.Media, h.saveDir, ".jpg")
+					if err != nil {
+						log.Printf("[handler] failed to download CDN image: %v", err)
+					} else {
+						entry.Path = localPath
+						log.Printf("[handler] downloaded CDN image to: %s", localPath)
+					}
+				}
+				media = append(media, entry)
+			}
+		case ilink.ItemTypeFile:
+			if item.FileItem != nil {
+				entry := agent.MediaEntry{
+					Type:     "file",
+					FileName: item.FileItem.FileName,
+				}
+				if item.FileItem.Media != nil && h.saveDir != "" {
+					// CDN file - download and decrypt
+					ext := filepath.Ext(item.FileItem.FileName)
+					if ext == "" {
+						ext = ".bin"
+					}
+					localPath, err := downloadCDNMedia(ctx, client, item.FileItem.Media, h.saveDir, ext)
+					if err != nil {
+						log.Printf("[handler] failed to download CDN file: %v", err)
+					} else {
+						entry.Path = localPath
+						log.Printf("[handler] downloaded CDN file to: %s", localPath)
+					}
+				}
+				log.Printf("[handler] file: name=%s, path=%s", entry.FileName, entry.Path)
+				media = append(media, entry)
+			}
+		case ilink.ItemTypeVideo:
+			if item.VideoItem != nil {
+				entry := agent.MediaEntry{Type: "video"}
+				if item.VideoItem.Media != nil && h.saveDir != "" {
+					// CDN video - download and decrypt
+					localPath, err := downloadCDNMedia(ctx, client, item.VideoItem.Media, h.saveDir, ".mp4")
+					if err != nil {
+						log.Printf("[handler] failed to download CDN video: %v", err)
+					} else {
+						entry.Path = localPath
+						log.Printf("[handler] downloaded CDN video to: %s", localPath)
+					}
+				}
+				log.Printf("[handler] video item found, path=%s", entry.Path)
+				media = append(media, entry)
+			}
+		}
+	}
+
+	return media
+}
+
+// sendMediaToAgent sends a message with media attachments to the default agent.
+func (h *Handler) sendMediaToAgent(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, text string, media []agent.MediaEntry) {
+	// Store context token for this user
+	h.contextTokens.Store(msg.FromUserID, msg.ContextToken)
+
+	clientID := NewClientID()
+
+	// Send typing indicator
+	go func() {
+		if typingErr := SendTypingState(ctx, client, msg.FromUserID, msg.ContextToken); typingErr != nil {
+			log.Printf("[handler] failed to send typing state: %v", typingErr)
+		}
+	}()
+
+	h.mu.RLock()
+	defaultName := h.defaultName
+	h.mu.RUnlock()
+
+	ag := h.getDefaultAgent()
+	var reply string
+	if ag != nil {
+		var err error
+		log.Printf("[handler] sending %d media items to agent for %s", len(media), msg.FromUserID)
+		reply, err = h.chatWithAgentAndMedia(ctx, ag, msg.FromUserID, text, media)
+		if err != nil {
+			reply = fmt.Sprintf("Error: %v", err)
+		}
+	} else {
+		log.Printf("[handler] agent not ready, using echo mode for %s", msg.FromUserID)
+		reply = "[echo] received media"
+	}
+
+	h.sendReplyWithMedia(ctx, client, msg, defaultName, reply, clientID)
+}
+
+// chatWithAgentAndMedia sends a message with media attachments to an agent and returns the reply.
+func (h *Handler) chatWithAgentAndMedia(ctx context.Context, ag agent.Agent, userID, message string, media []agent.MediaEntry) (string, error) {
+	info := ag.Info()
+	log.Printf("[handler] dispatching to agent (%s) for %s with %d media items", info, userID, len(media))
+
+	start := time.Now()
+	reply, err := ag.ChatWithMedia(ctx, userID, message, media)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		log.Printf("[handler] agent error (%s, elapsed=%s): %v", info, elapsed, err)
+		return "", err
+	}
+
+	log.Printf("[handler] agent replied (%s, elapsed=%s): %q", info, elapsed, truncate(reply, 100))
+	return reply, nil
+}
+
+// downloadCDNMedia downloads and decrypts media from WeChat CDN.
+// Returns the local file path where the decrypted media is saved.
+func downloadCDNMedia(ctx context.Context, client *ilink.Client, media *ilink.MediaInfo, saveDir string, ext string) (string, error) {
+	if media == nil || media.EncryptQueryParam == "" {
+		return "", fmt.Errorf("invalid media info")
+	}
+
+	// Build CDN download URL
+	cdnURL := fmt.Sprintf("https://ilinkai.weixin.qq.com%s", media.EncryptQueryParam)
+	log.Printf("[handler] downloading CDN media from: %s", cdnURL)
+
+	// Download encrypted data
+	req, err := http.NewRequestWithContext(ctx, "GET", cdnURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("download: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("download failed: status %d", resp.StatusCode)
+	}
+
+	encryptedData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+
+	log.Printf("[handler] downloaded %d bytes of encrypted data", len(encryptedData))
+
+	// Decrypt using AES-128-ECB
+	aesKey, err := base64.StdEncoding.DecodeString(media.AESKey)
+	if err != nil {
+		return "", fmt.Errorf("decode aes key: %w", err)
+	}
+
+	decryptedData, err := decryptAES128ECB(encryptedData, aesKey)
+	if err != nil {
+		return "", fmt.Errorf("decrypt: %w", err)
+	}
+
+	// Save to local file
+	filename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+	filePath := filepath.Join(saveDir, filename)
+
+	if err := os.WriteFile(filePath, decryptedData, 0644); err != nil {
+		return "", fmt.Errorf("save file: %w", err)
+	}
+
+	log.Printf("[handler] saved decrypted media to: %s", filePath)
+	return filePath, nil
+}
+
+// decryptAES128ECB decrypts data using AES-128-ECB mode.
+func decryptAES128ECB(encrypted, key []byte) ([]byte, error) {
+	if len(key) != 16 {
+		return nil, fmt.Errorf("invalid key length: %d (expected 16)", len(key))
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("create cipher: %w", err)
+	}
+
+	if len(encrypted)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("encrypted data length %d is not a multiple of block size", len(encrypted))
+	}
+
+	decrypted := make([]byte, len(encrypted))
+	for i := 0; i < len(encrypted); i += aes.BlockSize {
+		block.Decrypt(decrypted[i:i+aes.BlockSize], encrypted[i:i+aes.BlockSize])
+	}
+
+	// Remove PKCS7 padding
+	padding := int(decrypted[len(decrypted)-1])
+	if padding > 0 && padding <= aes.BlockSize {
+		decrypted = decrypted[:len(decrypted)-padding]
+	}
+
+	return decrypted, nil
 }

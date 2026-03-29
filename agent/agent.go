@@ -9,6 +9,15 @@ import (
 	"strings"
 )
 
+// MediaEntry represents a media item (image, file, video) in a message.
+type MediaEntry struct {
+	Type     string // "image", "file", "video"
+	URL      string // download URL (if available)
+	Path     string // local file path (after download)
+	MIMEType string // MIME type (if known)
+	FileName string // original filename (for files)
+}
+
 // AgentInfo holds metadata about an agent for logging/debugging.
 type AgentInfo struct {
 	Name    string // e.g. "claude-acp", "claude", "gpt-4o"
@@ -80,6 +89,10 @@ type Agent interface {
 	// Chat sends a message to the agent and returns the response.
 	// conversationID is used to maintain conversation history per user.
 	Chat(ctx context.Context, conversationID string, message string) (string, error)
+
+	// ChatWithMedia sends a message with media attachments to the agent.
+	// media can contain images, files, videos, etc.
+	ChatWithMedia(ctx context.Context, conversationID string, message string, media []MediaEntry) (string, error)
 
 	// ResetSession clears the existing session for the given conversationID and
 	// starts a new one. Returns the new session ID if immediately available

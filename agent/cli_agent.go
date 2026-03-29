@@ -112,6 +112,24 @@ func (a *CLIAgent) Chat(ctx context.Context, conversationID string, message stri
 	}
 }
 
+// ChatWithMedia sends a message with media attachments.
+// CLI agents currently don't support media natively, so we add media info to the message.
+func (a *CLIAgent) ChatWithMedia(ctx context.Context, conversationID string, message string, media []MediaEntry) (string, error) {
+	// Build enhanced message with media descriptions
+	enhancedMessage := message
+	for _, m := range media {
+		switch m.Type {
+		case "image":
+			enhancedMessage += fmt.Sprintf("\n[图片: %s]", m.URL)
+		case "file":
+			enhancedMessage += fmt.Sprintf("\n[文件: %s]", m.FileName)
+		case "video":
+			enhancedMessage += fmt.Sprintf("\n[视频: %s]", m.URL)
+		}
+	}
+	return a.Chat(ctx, conversationID, enhancedMessage)
+}
+
 // chatClaude uses claude -p with stream-json to get structured output and session persistence.
 func (a *CLIAgent) chatClaude(ctx context.Context, conversationID string, message string) (string, error) {
 	args := []string{"-p", message, "--output-format", "stream-json", "--verbose"}

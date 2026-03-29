@@ -210,6 +210,12 @@ func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("X-WECHAT-UIN", c.wechatUIN)
 }
 
+// SetRequestHeaders sets authentication headers on an HTTP request.
+// This can be used for CDN downloads that require authentication.
+func (c *Client) SetRequestHeaders(req *http.Request) {
+	c.setHeaders(req)
+}
+
 func generateWechatUIN() string {
 	var n uint32
 	_ = binary.Read(rand.Reader, binary.LittleEndian, &n)

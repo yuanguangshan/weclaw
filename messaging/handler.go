@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/aes"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -289,14 +291,16 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 			log.Printf("[handler] voice transcription from %s: %q", msg.FromUserID, truncate(text, 80))
 		}
 	}
+
+	// Check for media attachments (image, file, video) — regardless of whether text exists
+	media := h.extractAllMedia(ctx, client, msg)
+	if len(media) > 0 {
+		log.Printf("[handler] extracted %d media items from message (text=%q)", len(media), truncate(text, 40))
+		h.sendMediaToAgent(ctx, client, msg, text, media)
+		return
+	}
+
 	if text == "" {
-		// Check for media message (image, file, video)
-		media := h.extractAllMedia(ctx, client, msg)
-		log.Printf("[handler] extracted %d media items from message", len(media))
-		if len(media) > 0 {
-			h.sendMediaToAgent(ctx, client, msg, text, media)
-			return
-		}
 		log.Printf("[handler] received non-text message from %s, skipping", msg.FromUserID)
 		return
 	}
@@ -828,9 +832,11 @@ func (h *Handler) extractAllMedia(ctx context.Context, client *ilink.Client, msg
 		case ilink.ItemTypeImage:
 			if item.ImageItem != nil {
 				entry := agent.MediaEntry{Type: "image"}
-				if item.ImageItem.URL != "" {
+				log.Printf("[handler] image item: URL=%q, Media=%v, MidSize=%d", item.ImageItem.URL, item.ImageItem.Media != nil, item.ImageItem.MidSize)
+				// Check if URL is a valid HTTP URL
+				if item.ImageItem.URL != "" && strings.HasPrefix(item.ImageItem.URL, "http") {
 					entry.URL = item.ImageItem.URL
-					log.Printf("[handler] image URL: %s", entry.URL)
+					log.Printf("[handler] image HTTP URL: %s", entry.URL)
 				} else if item.ImageItem.Media != nil && h.saveDir != "" {
 					// CDN media - download and decrypt
 					log.Printf("[handler] image has CDN media: encrypt_param=%s", item.ImageItem.Media.EncryptQueryParam)
@@ -841,6 +847,23 @@ func (h *Handler) extractAllMedia(ctx context.Context, client *ilink.Client, msg
 						entry.Path = localPath
 						log.Printf("[handler] downloaded CDN image to: %s", localPath)
 					}
+				} else if item.ImageItem.URL != "" && h.saveDir != "" {
+					// URL is actually encrypt_query_param, download from CDN
+					log.Printf("[handler] image URL is encrypt_param: %s (MidSize=%d)", item.ImageItem.URL, item.ImageItem.MidSize)
+					mediaInfo := &ilink.MediaInfo{
+						EncryptQueryParam: item.ImageItem.URL,
+						AESKey:            "",
+						EncryptType:       0,
+					}
+					localPath, err := downloadCDNMedia(ctx, client, mediaInfo, h.saveDir, ".jpg")
+					if err != nil {
+						log.Printf("[handler] failed to download CDN image from encrypt_param: %v", err)
+					} else {
+						entry.Path = localPath
+						log.Printf("[handler] downloaded CDN image to: %s", localPath)
+					}
+				} else {
+					log.Printf("[handler] image has no valid URL or CDN media, skipping")
 				}
 				media = append(media, entry)
 			}
@@ -949,8 +972,9 @@ func downloadCDNMedia(ctx context.Context, client *ilink.Client, media *ilink.Me
 		return "", fmt.Errorf("invalid media info")
 	}
 
-	// Build CDN download URL
-	cdnURL := fmt.Sprintf("https://ilinkai.weixin.qq.com%s", media.EncryptQueryParam)
+	// Build CDN download URL using the correct CDN endpoint
+	cdnURL := fmt.Sprintf("https://novac2c.cdn.weixin.qq.com/c2c/download?encrypted_query_param=%s",
+		url.QueryEscape(media.EncryptQueryParam))
 	log.Printf("[handler] downloading CDN media from: %s", cdnURL)
 
 	// Download encrypted data
@@ -974,24 +998,37 @@ func downloadCDNMedia(ctx context.Context, client *ilink.Client, media *ilink.Me
 		return "", fmt.Errorf("read response: %w", err)
 	}
 
-	log.Printf("[handler] downloaded %d bytes of encrypted data", len(encryptedData))
+	log.Printf("[handler] downloaded %d bytes of data", len(encryptedData))
 
-	// Decrypt using AES-128-ECB
-	aesKey, err := base64.StdEncoding.DecodeString(media.AESKey)
-	if err != nil {
-		return "", fmt.Errorf("decode aes key: %w", err)
-	}
+	var fileData []byte
+	if media.AESKey != "" {
+		// Decrypt using AES-128-ECB
+		// AES key format: base64 -> hex string -> raw bytes
+		aesKeyHexBytes, err := base64.StdEncoding.DecodeString(media.AESKey)
+		if err != nil {
+			return "", fmt.Errorf("decode aes key base64: %w", err)
+		}
+		aesKey, err := hex.DecodeString(string(aesKeyHexBytes))
+		if err != nil {
+			return "", fmt.Errorf("decode aes key hex: %w", err)
+		}
 
-	decryptedData, err := decryptAES128ECB(encryptedData, aesKey)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: %w", err)
+		fileData, err = decryptAES128ECB(encryptedData, aesKey)
+		if err != nil {
+			return "", fmt.Errorf("decrypt: %w", err)
+		}
+		log.Printf("[handler] decrypted %d bytes", len(fileData))
+	} else {
+		// No encryption key — data is plaintext
+		fileData = encryptedData
+		log.Printf("[handler] no AES key, using raw data (no decryption)")
 	}
 
 	// Save to local file
 	filename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
 	filePath := filepath.Join(saveDir, filename)
 
-	if err := os.WriteFile(filePath, decryptedData, 0644); err != nil {
+	if err := os.WriteFile(filePath, fileData, 0644); err != nil {
 		return "", fmt.Errorf("save file: %w", err)
 	}
 

@@ -27,6 +27,30 @@ type AgentInfo struct {
 	PID     int    // subprocess PID (0 if not applicable, e.g. http agent)
 }
 
+// ProgressType represents the type of progress event.
+type ProgressType string
+
+const (
+	ProgressTypeToolStart   ProgressType = "tool_start"   // Tool execution started
+	ProgressTypeToolEnd     ProgressType = "tool_end"     // Tool execution ended
+	ProgressTypeThought     ProgressType = "thought"      // Agent thinking/reasoning
+	ProgressTypeFileRead    ProgressType = "file_read"    // Reading file
+	ProgressTypeFileWrite   ProgressType = "file_write"   // Writing file
+	ProgressTypeProcessing  ProgressType = "processing"   // General processing
+	ProgressTypeSearching   ProgressType = "searching"    // Searching/analyzing
+)
+
+// ProgressEvent represents a progress notification from an agent.
+type ProgressEvent struct {
+	Type    ProgressType // Type of progress event
+	Message string       // Human-readable progress message
+	ToolName string      // Name of the tool being used (optional)
+}
+
+// ProgressCallback is called when an agent reports progress.
+// The callback receives the context and the progress event.
+type ProgressCallback func(ctx context.Context, event ProgressEvent)
+
 // String returns a human-readable summary for logging.
 func (i AgentInfo) String() string {
 	s := fmt.Sprintf("name=%s, type=%s, model=%s, command=%s", i.Name, i.Type, i.Model, i.Command)
@@ -105,4 +129,8 @@ type Agent interface {
 
 	// SetCwd changes the working directory for subsequent operations.
 	SetCwd(cwd string)
+
+	// SetProgressCallback sets a callback for progress notifications.
+	// The callback will be invoked when the agent reports progress during long-running operations.
+	SetProgressCallback(callback ProgressCallback)
 }

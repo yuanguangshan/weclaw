@@ -48,6 +48,17 @@ type Handler struct {
 	contextTokens sync.Map   // map[userID]contextToken
 	saveDir       string     // directory to save images/files to
 	seenMsgs      sync.Map   // map[int64]time.Time — dedup by message_id
+	progressCtx   *progressContext // current request context for progress notifications
+}
+
+// progressContext holds context for sending progress notifications.
+type progressContext struct {
+	client   *ilink.Client
+	userID   string
+	token    string
+	cancel   context.CancelFunc
+	lastTime time.Time // last progress notification time
+	mu       sync.Mutex
 }
 
 // NewHandler creates a new message handler.
@@ -438,7 +449,7 @@ func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, 
 	var reply string
 	if ag != nil {
 		var err error
-		reply, err = h.chatWithAgent(ctx, ag, msg.FromUserID, text)
+		reply, err = h.chatWithAgent(ctx, ag, msg.FromUserID, text, client, msg.ContextToken)
 		if err != nil {
 			reply = fmt.Sprintf("Error: %v", err)
 		}
@@ -460,7 +471,7 @@ func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, ms
 		return
 	}
 
-	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message)
+	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message, client, msg.ContextToken)
 	if err != nil {
 		reply = fmt.Sprintf("Error: %v", err)
 	}
@@ -484,7 +495,7 @@ func (h *Handler) broadcastToAgents(ctx context.Context, client *ilink.Client, m
 				ch <- result{name: n, reply: fmt.Sprintf("Error: %v", err)}
 				return
 			}
-			reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message)
+			reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message, client, msg.ContextToken)
 			if err != nil {
 				ch <- result{name: n, reply: fmt.Sprintf("Error: %v", err)}
 				return
@@ -552,9 +563,40 @@ func (h *Handler) allowedAttachmentRoots(agentName string) []string {
 }
 
 // chatWithAgent sends a message to an agent and returns the reply, with logging.
-func (h *Handler) chatWithAgent(ctx context.Context, ag agent.Agent, userID, message string) (string, error) {
+// Optional client and token can be provided for progress notifications.
+func (h *Handler) chatWithAgent(ctx context.Context, ag agent.Agent, userID, message string, clientAndToken ...interface{}) (string, error) {
 	info := ag.Info()
 	log.Printf("[handler] dispatching to agent (%s) for %s", info, userID)
+
+	// Set up progress callback if client and token are provided
+	if len(clientAndToken) >= 2 {
+		if client, ok := clientAndToken[0].(*ilink.Client); ok && client != nil {
+			if token, ok := clientAndToken[1].(string); ok && token != "" {
+				// Get existing context token for this user
+				if contextTokenVal, ok := h.contextTokens.Load(userID); ok && contextTokenVal != nil {
+					if contextToken, ok := contextTokenVal.(string); ok {
+						// Create progress context
+						pCtx := &progressContext{
+							client:   client,
+							userID:   userID,
+							token:    contextToken,
+							lastTime: time.Time{}, // zero time means no notification sent yet
+						}
+
+						// Set progress callback on the agent
+						ag.SetProgressCallback(func(ctx context.Context, event agent.ProgressEvent) {
+							h.handleProgressEvent(ctx, pCtx, event)
+						})
+
+						// Clean up progress context after chat completes
+						defer func() {
+							h.setProgressContext(nil)
+						}()
+					}
+				}
+			}
+		}
+	}
 
 	start := time.Now()
 	reply, err := ag.Chat(ctx, userID, message)
@@ -567,6 +609,35 @@ func (h *Handler) chatWithAgent(ctx context.Context, ag agent.Agent, userID, mes
 
 	log.Printf("[handler] agent replied (%s, elapsed=%s): %q", info, elapsed, truncate(reply, 100))
 	return reply, nil
+}
+
+// setProgressContext sets the current progress context.
+func (h *Handler) setProgressContext(ctx *progressContext) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.progressCtx = ctx
+}
+
+// handleProgressEvent handles a progress event from an agent.
+func (h *Handler) handleProgressEvent(ctx context.Context, pCtx *progressContext, event agent.ProgressEvent) {
+	// Check if we should send this notification (rate limit: at most 1 per 3 seconds)
+	pCtx.mu.Lock()
+	now := time.Now()
+	if !pCtx.lastTime.IsZero() && now.Sub(pCtx.lastTime) < 3*time.Second {
+		pCtx.mu.Unlock()
+		return
+	}
+	pCtx.lastTime = now
+	pCtx.mu.Unlock()
+
+	// Send progress notification to WeChat
+	clientID := NewClientID()
+	message := fmt.Sprintf("⏳ %s", event.Message)
+	if err := SendTextReply(ctx, pCtx.client, pCtx.userID, message, pCtx.token, clientID); err != nil {
+		log.Printf("[handler] failed to send progress notification: %v", err)
+	} else {
+		log.Printf("[handler] sent progress notification: %s", event.Message)
+	}
 }
 
 // switchDefault switches the default agent. Starts it on demand if needed.
@@ -718,7 +789,7 @@ func (h *Handler) analyzeWithNanobot(ctx context.Context, client *ilink.Client, 
 	}()
 
 	// Get analysis from nanobot
-	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, prompt)
+	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, prompt, client, msg.ContextToken)
 	if err != nil {
 		log.Printf("[handler] nanobot analysis failed: %v", err)
 		reply = fmt.Sprintf("分析失败: %v", err)

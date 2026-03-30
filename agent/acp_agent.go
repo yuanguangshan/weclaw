@@ -48,6 +48,8 @@ type ACPAgent struct {
 
 	// rpcCall allows tests to stub JSON-RPC interactions without a subprocess.
 	rpcCall func(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
+
+	progressCallback ProgressCallback // progress notification callback
 }
 
 // ACPAgentConfig holds configuration for the ACP agent.
@@ -332,6 +334,25 @@ func (a *ACPAgent) SetCwd(cwd string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.cwd = cwd
+}
+
+// SetProgressCallback sets a callback for progress notifications.
+func (a *ACPAgent) SetProgressCallback(callback ProgressCallback) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.progressCallback = callback
+}
+
+// sendProgress sends a progress event if a callback is registered.
+func (a *ACPAgent) sendProgress(ctx context.Context, event ProgressEvent) {
+	a.mu.Lock()
+	callback := a.progressCallback
+	a.mu.Unlock()
+
+	if callback != nil {
+		// Call callback in goroutine to avoid blocking
+		go callback(ctx, event)
+	}
 }
 
 // ResetSession clears the existing session for the given conversationID and
@@ -1093,7 +1114,22 @@ func (a *ACPAgent) handleCodexItemStarted(params json.RawMessage) {
 		return
 	}
 
+	// Send progress notification for non-agentMessage items
 	if p.Item.Type != "agentMessage" {
+		// Map item types to user-friendly messages
+		var message string
+		switch p.Item.Type {
+		case "tool_use":
+			message = "正在执行工具..."
+		case "thinking":
+			message = "正在思考..."
+		default:
+			message = fmt.Sprintf("正在处理: %s", p.Item.Type)
+		}
+		a.sendProgress(context.Background(), ProgressEvent{
+			Type:    ProgressTypeProcessing,
+			Message: message,
+		})
 		return
 	}
 
@@ -1152,6 +1188,23 @@ func (a *ACPAgent) handlePermissionRequest(raw string) {
 		return
 	}
 
+	// Extract tool name for progress notification
+	var toolName string
+	if req.Params.ToolCall != nil {
+		var toolCall struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(req.Params.ToolCall, &toolCall); err == nil && toolCall.Name != "" {
+			toolName = toolCall.Name
+			// Send progress notification
+			a.sendProgress(context.Background(), ProgressEvent{
+				Type:     ProgressTypeToolStart,
+				Message:  fmt.Sprintf("正在调用工具: %s", toolName),
+				ToolName: toolName,
+			})
+		}
+	}
+
 	// Find the "allow" option
 	optionID := "allow"
 	for _, opt := range req.Params.Options {
@@ -1183,7 +1236,7 @@ func (a *ACPAgent) handlePermissionRequest(raw string) {
 	fmt.Fprintf(a.stdin, "%s\n", data)
 	a.mu.Unlock()
 
-	log.Printf("[acp] auto-allowed permission request")
+	log.Printf("[acp] auto-allowed permission request (tool=%s)", toolName)
 }
 
 // Info returns metadata about this agent.

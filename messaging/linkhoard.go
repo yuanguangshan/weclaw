@@ -248,7 +248,8 @@ func FetchViaJina(ctx context.Context, rawURL string) (*LinkMetadata, error) {
 
 // SaveLinkToLinkhoard fetches a URL and saves it as a Linkhoard-compatible markdown file.
 // WeChat articles use direct fetch with browser headers; other sites use Jina Reader.
-func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (string, error) {
+// Returns the link metadata for further processing (e.g., AI analysis).
+func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (*LinkMetadata, error) {
 	var meta *LinkMetadata
 	var err error
 
@@ -263,12 +264,12 @@ func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (string, e
 		}
 	}
 	if err != nil {
-		return "", fmt.Errorf("fetch failed: %w", err)
+		return nil, fmt.Errorf("fetch failed: %w", err)
 	}
 
 	// Ensure save directory exists
 	if err := os.MkdirAll(saveDir, 0o755); err != nil {
-		return "", fmt.Errorf("create dir: %w", err)
+		return nil, fmt.Errorf("create dir: %w", err)
 	}
 
 	// Build frontmatter
@@ -310,7 +311,7 @@ func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (string, e
 	// Write markdown file
 	filePath := filepath.Join(saveDir, title+".md")
 	if err := os.WriteFile(filePath, []byte(sb.String()), 0o644); err != nil {
-		return "", fmt.Errorf("write file: %w", err)
+		return nil, fmt.Errorf("write file: %w", err)
 	}
 
 	// Write sidecar
@@ -321,5 +322,5 @@ func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (string, e
 	}
 
 	log.Printf("[linkhoard] saved %q to %s", meta.Title, filePath)
-	return meta.Title, nil
+	return meta, nil
 }

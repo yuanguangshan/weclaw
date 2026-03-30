@@ -319,13 +319,17 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 		rawURL := ExtractURL(trimmed)
 		if rawURL != "" {
 			log.Printf("[handler] saving URL to linkhoard: %s", rawURL)
-			title, err := SaveLinkToLinkhoard(ctx, h.saveDir, rawURL)
+			meta, err := SaveLinkToLinkhoard(ctx, h.saveDir, rawURL)
 			var reply string
 			if err != nil {
 				log.Printf("[handler] link save failed: %v", err)
 				reply = fmt.Sprintf("保存失败: %v", err)
 			} else {
-				reply = fmt.Sprintf("已保存: %s", title)
+				reply = fmt.Sprintf("已保存: %s", meta.Title)
+				// If it's a WeChat article, send to nanobot for analysis
+				if isWeChatURL(rawURL) {
+					go h.analyzeWithNanobot(ctx, client, msg, meta)
+				}
 			}
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -691,6 +695,40 @@ func (h *Handler) buildStatus() string {
 
 	info := ag.Info()
 	return fmt.Sprintf("agent: %s\ntype: %s\nmodel: %s", h.defaultName, info.Type, info.Model)
+}
+
+// analyzeWithNanobot sends a WeChat article to nanobot for analysis.
+func (h *Handler) analyzeWithNanobot(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, meta *LinkMetadata) {
+	// Get nanobot agent
+	ag, err := h.getAgent(ctx, "nanobot")
+	if err != nil {
+		log.Printf("[handler] failed to get nanobot for analysis: %v", err)
+		return
+	}
+
+	// Build analysis prompt
+	prompt := fmt.Sprintf("请分析这篇微信文章，给出摘要和关键观点：\n\n标题：%s\n\n文章内容：\n%s",
+		meta.Title, meta.Body)
+
+	// Send typing indicator
+	go func() {
+		if typingErr := SendTypingState(ctx, client, msg.FromUserID, msg.ContextToken); typingErr != nil {
+			log.Printf("[handler] failed to send typing state: %v", typingErr)
+		}
+	}()
+
+	// Get analysis from nanobot
+	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, prompt)
+	if err != nil {
+		log.Printf("[handler] nanobot analysis failed: %v", err)
+		reply = fmt.Sprintf("分析失败: %v", err)
+	}
+
+	// Send analysis result
+	clientID := NewClientID()
+	if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+		log.Printf("[handler] failed to send analysis reply to %s: %v", msg.FromUserID, err)
+	}
 }
 
 func buildHelpText() string {

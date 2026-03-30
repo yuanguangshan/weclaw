@@ -1,10 +1,10 @@
 # Project Documentation
 
-- **Generated at:** 2026-03-30 04:05:03
+- **Generated at:** 2026-03-30 14:06:55
 - **Root Dir:** `.`
-- **File Count:** 47
-- **Total Lines:** 7746
-- **Total Size:** 206.16 KB
+- **File Count:** 48
+- **Total Lines:** 8409
+- **Total Size:** 225.10 KB
 
 <a name="toc"></a>
 ## 📂 扫描目录
@@ -15,7 +15,6 @@
 - [LICENSE](#file-license) (21 lines, 1.04 KB)
 - [Makefile](#file-makefile) (2 lines, 0.03 KB)
 - [README.md](#file-readme.md) (343 lines, 8.63 KB)
-- [README_CN.md](#file-readme_cn.md) (345 lines, 9.32 KB)
 - [agent/acp_agent.go](#file-agent-acp_agent.go) (1266 lines, 31.82 KB)
 - [agent/agent.go](#file-agent-agent.go) (108 lines, 3.17 KB)
 - [agent/cli_agent.go](#file-agent-cli_agent.go) (298 lines, 8.50 KB)
@@ -36,6 +35,8 @@
 - [config/config_test.go](#file-config-config_test.go) (119 lines, 2.53 KB)
 - [config/detect.go](#file-config-detect.go) (281 lines, 9.21 KB)
 - [config/detect_test.go](#file-config-detect_test.go) (82 lines, 2.50 KB)
+- [docs/README_CN.md](#file-docs-readme_cn.md) (345 lines, 9.32 KB)
+- [docs/项目学习.md](#file-docs-项目学习.md) (663 lines, 18.94 KB)
 - [go.mod](#file-go.mod) (15 lines, 0.43 KB)
 - [ilink/auth.go](#file-ilink-auth.go) (177 lines, 3.96 KB)
 - [ilink/client.go](#file-ilink-client.go) (224 lines, 5.66 KB)
@@ -583,360 +584,6 @@ go build -o weclaw .
 [![Star History Chart](https://api.star-history.com/svg?repos=fastclaw-ai/weclaw&type=Timeline)](https://star-history.com/#fastclaw-ai/weclaw&Timeline)
 
 ## License
-
-[MIT](LICENSE)
-
-````
-
-[⬆ 回到目录](#toc)
-
-<a name="file-readme_cn.md"></a>
-## 📄 README_CN.md
-
-````markdown
-# WeClaw
-
-[English](README.md)
-
-微信 AI Agent 桥接器 — 将微信消息接入 AI Agent（Claude、Codex、Gemini、Kimi 等）。
-
-> 本项目参考 [@tencent-weixin/openclaw-weixin](https://npmx.dev/package/@tencent-weixin/openclaw-weixin) 实现，仅限个人学习，勿做他用。
-
-|                                                 |                                                 |                                                 |
-| :---------------------------------------------: | :---------------------------------------------: | :---------------------------------------------: |
-| <img src="previews/preview1.png" width="280" /> | <img src="previews/preview2.png" width="280" /> | <img src="previews/preview3.png" width="280" /> |
-
-## 快速开始
-
-```bash
-# 一键安装
-curl -sSL https://raw.githubusercontent.com/fastclaw-ai/weclaw/main/install.sh | sh
-
-# 启动（首次运行会弹出微信扫码登录）
-weclaw start
-```
-
-就这么简单。首次启动时，WeClaw 会：
-
-1. 显示二维码 — 用微信扫码登录
-2. 自动检测已安装的 AI Agent（Claude、Codex、Gemini 等）
-3. 保存配置到 `~/.weclaw/config.json`
-4. 开始接收和回复微信消息
-
-使用 `weclaw login` 可以添加更多微信账号。
-
-### 其他安装方式
-
-```bash
-# 通过 Go 安装
-go install github.com/fastclaw-ai/weclaw@latest
-
-# 通过 Docker
-docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
-```
-
-## 架构
-
-<p align="center">
-  <img src="previews/architecture.png" width="600" />
-</p>
-
-**Agent 接入模式：**
-
-| 模式 | 工作方式                                                         | 支持的 Agent                                            |
-| ---- | ---------------------------------------------------------------- | ------------------------------------------------------- |
-| ACP  | 长驻子进程，通过 stdio JSON-RPC 通信。速度最快，复用进程和会话。 | Claude, Codex, Kimi, Gemini, Cursor, OpenCode, OpenClaw |
-| CLI  | 每条消息启动一个新进程，支持通过 `--resume` 恢复会话。           | Claude (`claude -p`)、Codex (`codex exec`)              |
-| HTTP | OpenAI 兼容的 Chat Completions API。                             | OpenClaw（HTTP 回退）                                   |
-
-同时存在 ACP 和 CLI 时，自动优先选择 ACP。
-
-## 聊天命令
-
-在微信中发送以下命令：
-
-| 命令                    | 说明                     |
-| ----------------------- | ------------------------ |
-| `你好`                  | 发送给默认 Agent         |
-| `/codex 写一个排序函数` | 发送给指定 Agent         |
-| `/cc 解释一下这段代码`  | 通过别名发送             |
-| `/claude`               | 切换默认 Agent 为 Claude |
-| `/cwd /path/to/project` | 切换工作目录             |
-| `/new`                  | 开始新对话（清除会话）   |
-| `/info`                 | 查看当前 Agent 信息      |
-| `/help`                 | 查看帮助信息             |
-
-### 快捷别名
-
-| 别名   | Agent    |
-| ------ | -------- |
-| `/cc`  | Claude   |
-| `/cx`  | Codex    |
-| `/cs`  | Cursor   |
-| `/km`  | Kimi     |
-| `/gm`  | Gemini   |
-| `/ocd` | OpenCode |
-| `/oc`  | OpenClaw |
-
-也可以在配置文件中为每个 Agent 自定义触发命令：
-
-```json
-{
-  "agents": {
-    "claude": {
-      "type": "acp",
-      "aliases": ["ai", "c"]
-    }
-  }
-}
-```
-
-然后 `/ai 你好` 或 `/c 你好` 就会路由到 claude。
-
-切换默认 Agent 会写入配置文件，重启后仍然生效。
-
-## 富媒体消息
-
-WeClaw 支持收发图片、视频、文件和语音消息。
-
-**语音消息：** 在微信中发送语音消息时，WeClaw 会自动使用微信的语音转文字功能，将转写后的文本发送给 AI Agent。重复的语音消息事件会自动去重。
-
-**Agent 回复自动处理：** 当 AI Agent 返回包含图片的 markdown（`![](url)`）时，WeClaw 会自动提取图片 URL，下载文件，上传到微信 CDN（AES-128-ECB 加密），然后作为图片消息发送。
-
-**Markdown 转换：** Agent 的回复会自动从 markdown 转为纯文本再发送 — 代码块去掉围栏、链接只保留文字、加粗斜体标记去除等。
-
-## 主动推送消息
-
-无需等待用户发消息，主动向微信用户推送消息。
-
-**命令行：**
-
-```bash
-# 发送文本
-weclaw send --to "user_id@im.wechat" --text "你好，来自 weclaw"
-
-# 发送图片
-weclaw send --to "user_id@im.wechat" --media "https://example.com/photo.png"
-
-# 发送文本 + 图片
-weclaw send --to "user_id@im.wechat" --text "看看这个" --media "https://example.com/photo.png"
-
-# 发送文件
-weclaw send --to "user_id@im.wechat" --media "https://example.com/report.pdf"
-```
-
-**HTTP API**（`weclaw start` 运行时，默认监听 `127.0.0.1:18011`）：
-
-```bash
-# 发送文本
-curl -X POST http://127.0.0.1:18011/api/send \
-  -H "Content-Type: application/json" \
-  -d '{"to": "user_id@im.wechat", "text": "你好，来自 weclaw"}'
-
-# 发送图片
-curl -X POST http://127.0.0.1:18011/api/send \
-  -H "Content-Type: application/json" \
-  -d '{"to": "user_id@im.wechat", "media_url": "https://example.com/photo.png"}'
-
-# 发送文本 + 媒体
-curl -X POST http://127.0.0.1:18011/api/send \
-  -H "Content-Type: application/json" \
-  -d '{"to": "user_id@im.wechat", "text": "看看这个", "media_url": "https://example.com/photo.png"}'
-```
-
-支持的媒体类型：图片（png、jpg、gif、webp）、视频（mp4、mov）、文件（pdf、doc、zip 等）。
-
-设置 `WECLAW_API_ADDR` 环境变量可更改监听地址（如 `0.0.0.0:18011`）。
-
-## 配置
-
-配置文件路径：`~/.weclaw/config.json`
-
-```json
-{
-  "default_agent": "claude",
-  "agents": {
-    "claude": {
-      "type": "acp",
-      "command": "/usr/local/bin/claude-agent-acp",
-      "env": {
-        "ANTHROPIC_API_KEY": "sk-ant-xxx"
-      },
-      "model": "sonnet"
-    },
-    "codex": {
-      "type": "acp",
-      "command": "/usr/local/bin/codex-acp",
-      "env": {
-        "OPENAI_API_KEY": "sk-xxx"
-      }
-    },
-    "openclaw": {
-      "type": "http",
-      "endpoint": "https://api.example.com/v1/chat/completions",
-      "api_key": "sk-xxx",
-      "model": "openclaw:main"
-    }
-  }
-}
-```
-
-环境变量：
-
-- `WECLAW_DEFAULT_AGENT` — 覆盖默认 Agent
-- `OPENCLAW_GATEWAY_URL` — OpenClaw HTTP 回退地址
-- `OPENCLAW_GATEWAY_TOKEN` — OpenClaw API Token
-
-自定义 agent cli 环境变量
-
-```json
-{
-  "default_agent": "...",
-  "agents": {
-    "...": {
-      ...
-      "env": {
-        "ENV_NAME": "ENV_VALUE"
-      }
-    },
-  }
-}
-```
-
-### 权限配置
-
-部分 Agent 默认需要交互式权限确认，在微信场景下无法操作会导致卡住。可通过 `args` 配置跳过：
-
-| Agent | 参数 | 说明 |
-|-------|------|------|
-| Claude (CLI) | `--dangerously-skip-permissions` | 跳过所有工具权限确认 |
-| Codex (CLI) | `--skip-git-repo-check` | 允许在非 git 仓库目录运行 |
-
-配置示例：
-
-```json
-{
-  "claude": {
-    "type": "cli",
-    "command": "/usr/local/bin/claude",
-    "cwd": "/home/user/my-project",
-    "args": ["--dangerously-skip-permissions"]
-  },
-  "codex": {
-    "type": "cli",
-    "command": "/usr/local/bin/codex",
-    "cwd": "/home/user/my-project",
-    "args": ["--skip-git-repo-check"]
-  }
-}
-```
-
-通过 `cwd` 指定 Agent 的工作目录（workspace）。不设置则默认为 `~/.weclaw/workspace`。
-
-> **注意：** 这些参数会跳过安全检查，请了解风险后再启用。ACP 模式的 Agent 会自动处理权限，无需配置。
-
-## 后台运行
-
-```bash
-# 启动（默认后台运行）
-weclaw start
-
-# 查看状态
-weclaw status
-
-# 停止
-weclaw stop
-
-# 前台运行（调试用）
-weclaw start -f
-```
-
-日志输出到 `~/.weclaw/weclaw.log`。
-
-### 系统服务（开机自启）
-
-**macOS (launchd)：**
-
-```bash
-cp service/com.fastclaw.weclaw.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.fastclaw.weclaw.plist
-```
-
-**Linux (systemd)：**
-
-```bash
-sudo cp service/weclaw.service /etc/systemd/system/
-sudo systemctl enable --now weclaw
-```
-
-## Docker
-
-```bash
-# 构建
-docker build -t weclaw .
-
-# 登录（交互式，扫描二维码）
-docker run -it -v ~/.weclaw:/root/.weclaw weclaw login
-
-# 使用 HTTP Agent 启动
-docker run -d --name weclaw \
-  -v ~/.weclaw:/root/.weclaw \
-  -e OPENCLAW_GATEWAY_URL=https://api.example.com \
-  -e OPENCLAW_GATEWAY_TOKEN=sk-xxx \
-  weclaw
-
-# 查看日志
-docker logs -f weclaw
-```
-
-> 注意：ACP 和 CLI 模式需要容器内有对应的 Agent 二进制文件。
-> 默认镜像只包含 WeClaw 本体。如需使用 ACP/CLI Agent，请挂载二进制文件或构建自定义镜像。
-> HTTP 模式开箱即用。
-
-## 发版
-
-```bash
-# 打 tag 触发 GitHub Actions 自动构建发版
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-自动构建 `darwin/linux/windows` x `amd64/arm64` 的二进制，创建 GitHub Release 并上传所有产物和校验文件。
-
-## 更新
-
-```bash
-# 更新到最新版本（运行中会自动重启）
-weclaw update
-
-# 查看当前版本
-weclaw version
-```
-
-## 开发
-
-```bash
-# 热重载
-make dev
-
-# 编译
-go build -o weclaw .
-
-# 运行
-./weclaw start
-```
-
-## 贡献者
-
-<a href="https://github.com/fastclaw-ai/weclaw/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=fastclaw-ai/weclaw" />
-</a>
-
-## Star 趋势
-
-[![Star History Chart](https://api.star-history.com/svg?repos=fastclaw-ai/weclaw&type=Timeline)](https://star-history.com/#fastclaw-ai/weclaw&Timeline)
-
-## 许可证
 
 [MIT](LICENSE)
 
@@ -4668,6 +4315,1032 @@ func TestDetectAndConfigure_StrippedPath(t *testing.T) {
 
 [⬆ 回到目录](#toc)
 
+<a name="file-docs-readme_cn.md"></a>
+## 📄 docs/README_CN.md
+
+````markdown
+# WeClaw
+
+[English](README.md)
+
+微信 AI Agent 桥接器 — 将微信消息接入 AI Agent（Claude、Codex、Gemini、Kimi 等）。
+
+> 本项目参考 [@tencent-weixin/openclaw-weixin](https://npmx.dev/package/@tencent-weixin/openclaw-weixin) 实现，仅限个人学习，勿做他用。
+
+|                                                 |                                                 |                                                 |
+| :---------------------------------------------: | :---------------------------------------------: | :---------------------------------------------: |
+| <img src="previews/preview1.png" width="280" /> | <img src="previews/preview2.png" width="280" /> | <img src="previews/preview3.png" width="280" /> |
+
+## 快速开始
+
+```bash
+# 一键安装
+curl -sSL https://raw.githubusercontent.com/fastclaw-ai/weclaw/main/install.sh | sh
+
+# 启动（首次运行会弹出微信扫码登录）
+weclaw start
+```
+
+就这么简单。首次启动时，WeClaw 会：
+
+1. 显示二维码 — 用微信扫码登录
+2. 自动检测已安装的 AI Agent（Claude、Codex、Gemini 等）
+3. 保存配置到 `~/.weclaw/config.json`
+4. 开始接收和回复微信消息
+
+使用 `weclaw login` 可以添加更多微信账号。
+
+### 其他安装方式
+
+```bash
+# 通过 Go 安装
+go install github.com/fastclaw-ai/weclaw@latest
+
+# 通过 Docker
+docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
+```
+
+## 架构
+
+<p align="center">
+  <img src="previews/architecture.png" width="600" />
+</p>
+
+**Agent 接入模式：**
+
+| 模式 | 工作方式                                                         | 支持的 Agent                                            |
+| ---- | ---------------------------------------------------------------- | ------------------------------------------------------- |
+| ACP  | 长驻子进程，通过 stdio JSON-RPC 通信。速度最快，复用进程和会话。 | Claude, Codex, Kimi, Gemini, Cursor, OpenCode, OpenClaw |
+| CLI  | 每条消息启动一个新进程，支持通过 `--resume` 恢复会话。           | Claude (`claude -p`)、Codex (`codex exec`)              |
+| HTTP | OpenAI 兼容的 Chat Completions API。                             | OpenClaw（HTTP 回退）                                   |
+
+同时存在 ACP 和 CLI 时，自动优先选择 ACP。
+
+## 聊天命令
+
+在微信中发送以下命令：
+
+| 命令                    | 说明                     |
+| ----------------------- | ------------------------ |
+| `你好`                  | 发送给默认 Agent         |
+| `/codex 写一个排序函数` | 发送给指定 Agent         |
+| `/cc 解释一下这段代码`  | 通过别名发送             |
+| `/claude`               | 切换默认 Agent 为 Claude |
+| `/cwd /path/to/project` | 切换工作目录             |
+| `/new`                  | 开始新对话（清除会话）   |
+| `/info`                 | 查看当前 Agent 信息      |
+| `/help`                 | 查看帮助信息             |
+
+### 快捷别名
+
+| 别名   | Agent    |
+| ------ | -------- |
+| `/cc`  | Claude   |
+| `/cx`  | Codex    |
+| `/cs`  | Cursor   |
+| `/km`  | Kimi     |
+| `/gm`  | Gemini   |
+| `/ocd` | OpenCode |
+| `/oc`  | OpenClaw |
+
+也可以在配置文件中为每个 Agent 自定义触发命令：
+
+```json
+{
+  "agents": {
+    "claude": {
+      "type": "acp",
+      "aliases": ["ai", "c"]
+    }
+  }
+}
+```
+
+然后 `/ai 你好` 或 `/c 你好` 就会路由到 claude。
+
+切换默认 Agent 会写入配置文件，重启后仍然生效。
+
+## 富媒体消息
+
+WeClaw 支持收发图片、视频、文件和语音消息。
+
+**语音消息：** 在微信中发送语音消息时，WeClaw 会自动使用微信的语音转文字功能，将转写后的文本发送给 AI Agent。重复的语音消息事件会自动去重。
+
+**Agent 回复自动处理：** 当 AI Agent 返回包含图片的 markdown（`![](url)`）时，WeClaw 会自动提取图片 URL，下载文件，上传到微信 CDN（AES-128-ECB 加密），然后作为图片消息发送。
+
+**Markdown 转换：** Agent 的回复会自动从 markdown 转为纯文本再发送 — 代码块去掉围栏、链接只保留文字、加粗斜体标记去除等。
+
+## 主动推送消息
+
+无需等待用户发消息，主动向微信用户推送消息。
+
+**命令行：**
+
+```bash
+# 发送文本
+weclaw send --to "user_id@im.wechat" --text "你好，来自 weclaw"
+
+# 发送图片
+weclaw send --to "user_id@im.wechat" --media "https://example.com/photo.png"
+
+# 发送文本 + 图片
+weclaw send --to "user_id@im.wechat" --text "看看这个" --media "https://example.com/photo.png"
+
+# 发送文件
+weclaw send --to "user_id@im.wechat" --media "https://example.com/report.pdf"
+```
+
+**HTTP API**（`weclaw start` 运行时，默认监听 `127.0.0.1:18011`）：
+
+```bash
+# 发送文本
+curl -X POST http://127.0.0.1:18011/api/send \
+  -H "Content-Type: application/json" \
+  -d '{"to": "user_id@im.wechat", "text": "你好，来自 weclaw"}'
+
+# 发送图片
+curl -X POST http://127.0.0.1:18011/api/send \
+  -H "Content-Type: application/json" \
+  -d '{"to": "user_id@im.wechat", "media_url": "https://example.com/photo.png"}'
+
+# 发送文本 + 媒体
+curl -X POST http://127.0.0.1:18011/api/send \
+  -H "Content-Type: application/json" \
+  -d '{"to": "user_id@im.wechat", "text": "看看这个", "media_url": "https://example.com/photo.png"}'
+```
+
+支持的媒体类型：图片（png、jpg、gif、webp）、视频（mp4、mov）、文件（pdf、doc、zip 等）。
+
+设置 `WECLAW_API_ADDR` 环境变量可更改监听地址（如 `0.0.0.0:18011`）。
+
+## 配置
+
+配置文件路径：`~/.weclaw/config.json`
+
+```json
+{
+  "default_agent": "claude",
+  "agents": {
+    "claude": {
+      "type": "acp",
+      "command": "/usr/local/bin/claude-agent-acp",
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-xxx"
+      },
+      "model": "sonnet"
+    },
+    "codex": {
+      "type": "acp",
+      "command": "/usr/local/bin/codex-acp",
+      "env": {
+        "OPENAI_API_KEY": "sk-xxx"
+      }
+    },
+    "openclaw": {
+      "type": "http",
+      "endpoint": "https://api.example.com/v1/chat/completions",
+      "api_key": "sk-xxx",
+      "model": "openclaw:main"
+    }
+  }
+}
+```
+
+环境变量：
+
+- `WECLAW_DEFAULT_AGENT` — 覆盖默认 Agent
+- `OPENCLAW_GATEWAY_URL` — OpenClaw HTTP 回退地址
+- `OPENCLAW_GATEWAY_TOKEN` — OpenClaw API Token
+
+自定义 agent cli 环境变量
+
+```json
+{
+  "default_agent": "...",
+  "agents": {
+    "...": {
+      ...
+      "env": {
+        "ENV_NAME": "ENV_VALUE"
+      }
+    },
+  }
+}
+```
+
+### 权限配置
+
+部分 Agent 默认需要交互式权限确认，在微信场景下无法操作会导致卡住。可通过 `args` 配置跳过：
+
+| Agent | 参数 | 说明 |
+|-------|------|------|
+| Claude (CLI) | `--dangerously-skip-permissions` | 跳过所有工具权限确认 |
+| Codex (CLI) | `--skip-git-repo-check` | 允许在非 git 仓库目录运行 |
+
+配置示例：
+
+```json
+{
+  "claude": {
+    "type": "cli",
+    "command": "/usr/local/bin/claude",
+    "cwd": "/home/user/my-project",
+    "args": ["--dangerously-skip-permissions"]
+  },
+  "codex": {
+    "type": "cli",
+    "command": "/usr/local/bin/codex",
+    "cwd": "/home/user/my-project",
+    "args": ["--skip-git-repo-check"]
+  }
+}
+```
+
+通过 `cwd` 指定 Agent 的工作目录（workspace）。不设置则默认为 `~/.weclaw/workspace`。
+
+> **注意：** 这些参数会跳过安全检查，请了解风险后再启用。ACP 模式的 Agent 会自动处理权限，无需配置。
+
+## 后台运行
+
+```bash
+# 启动（默认后台运行）
+weclaw start
+
+# 查看状态
+weclaw status
+
+# 停止
+weclaw stop
+
+# 前台运行（调试用）
+weclaw start -f
+```
+
+日志输出到 `~/.weclaw/weclaw.log`。
+
+### 系统服务（开机自启）
+
+**macOS (launchd)：**
+
+```bash
+cp service/com.fastclaw.weclaw.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.fastclaw.weclaw.plist
+```
+
+**Linux (systemd)：**
+
+```bash
+sudo cp service/weclaw.service /etc/systemd/system/
+sudo systemctl enable --now weclaw
+```
+
+## Docker
+
+```bash
+# 构建
+docker build -t weclaw .
+
+# 登录（交互式，扫描二维码）
+docker run -it -v ~/.weclaw:/root/.weclaw weclaw login
+
+# 使用 HTTP Agent 启动
+docker run -d --name weclaw \
+  -v ~/.weclaw:/root/.weclaw \
+  -e OPENCLAW_GATEWAY_URL=https://api.example.com \
+  -e OPENCLAW_GATEWAY_TOKEN=sk-xxx \
+  weclaw
+
+# 查看日志
+docker logs -f weclaw
+```
+
+> 注意：ACP 和 CLI 模式需要容器内有对应的 Agent 二进制文件。
+> 默认镜像只包含 WeClaw 本体。如需使用 ACP/CLI Agent，请挂载二进制文件或构建自定义镜像。
+> HTTP 模式开箱即用。
+
+## 发版
+
+```bash
+# 打 tag 触发 GitHub Actions 自动构建发版
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+自动构建 `darwin/linux/windows` x `amd64/arm64` 的二进制，创建 GitHub Release 并上传所有产物和校验文件。
+
+## 更新
+
+```bash
+# 更新到最新版本（运行中会自动重启）
+weclaw update
+
+# 查看当前版本
+weclaw version
+```
+
+## 开发
+
+```bash
+# 热重载
+make dev
+
+# 编译
+go build -o weclaw .
+
+# 运行
+./weclaw start
+```
+
+## 贡献者
+
+<a href="https://github.com/fastclaw-ai/weclaw/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=fastclaw-ai/weclaw" />
+</a>
+
+## Star 趋势
+
+[![Star History Chart](https://api.star-history.com/svg?repos=fastclaw-ai/weclaw&type=Timeline)](https://star-history.com/#fastclaw-ai/weclaw&Timeline)
+
+## 许可证
+
+[MIT](LICENSE)
+
+````
+
+[⬆ 回到目录](#toc)
+
+<a name="file-docs-项目学习.md"></a>
+## 📄 docs/项目学习.md
+
+````markdown
+# WeClaw 项目学习笔记
+
+> 对话时间：2026-03-30
+
+---
+
+## 1. 项目概述
+
+**WeClaw** 是一个用 **Go 语言** 开发的微信 AI Agent 桥接器，将微信消息连接到各种 AI 代理（Claude、Codex、Gemini、Kimi 等）。
+
+### 项目定位
+- **核心功能**: 作为微信与 AI Agent 之间的桥梁
+- **技术栈**: 纯 Go 语言实现，使用 Cobra CLI 框架
+- **许可协议**: MIT 开源许可
+
+### 项目灵感
+```go
+// 项目灵感来自腾讯官方 @tencent-weixin/openclaw-weixin
+// 但 WeClaw 是独立实现的 Go 版本
+```
+
+---
+
+## 2. 项目结构
+
+```
+weclaw/
+├── main.go              # 程序入口点
+├── cmd/                 # CLI 命令实现
+│   ├── root.go          # 根命令 (Cobra)
+│   ├── start.go         # 启动服务
+│   ├── login.go         # 微信登录
+│   ├── send.go          # 主动发送消息
+│   ├── stop.go          # 停止服务
+│   ├── status.go        # 查看状态
+│   ├── update.go        # 更新版本
+│   └── proc_*.go        # 进程管理 (跨平台)
+├── agent/               # AI Agent 适配层
+│   ├── agent.go         # Agent 接口定义
+│   ├── acp_agent.go     # ACP 协议 Agent (1267行)
+│   ├── cli_agent.go     # CLI 模式 Agent
+│   └── http_agent.go    # HTTP API Agent
+├── ilink/               # 微信 iLink 协议实现
+│   ├── client.go        # iLink API 客户端
+│   ├── auth.go          # 二维码登录认证
+│   ├── monitor.go       # 消息长轮询监听
+│   └── types.go         # 协议数据类型定义
+├── messaging/           # 消息处理
+│   ├── handler.go       # 消息路由与处理
+│   ├── sender.go        # 消息发送
+│   ├── media.go         # 媒体文件处理
+│   ├── cdn.go           # 微信 CDN 上传/下载
+│   └── markdown.go      # Markdown 转纯文本
+├── api/                 # HTTP API 服务
+│   └── server.go        # 主动消息推送 API
+├── config/              # 配置管理
+│   ├── config.go        # 配置加载/保存
+│   └── detect.go        # Agent 自动检测
+└── service/             # 系统服务配置
+```
+
+---
+
+## 3. 多模式 Agent 支持
+
+### 统一接口定义 (agent/agent.go)
+
+```go
+type Agent interface {
+    Chat(ctx context.Context, conversationID string, message string) (string, error)
+    ChatWithMedia(ctx context.Context, conversationID string, message string, media []MediaEntry) (string, error)
+    ResetSession(ctx context.Context, conversationID string) (string, error)
+    Info() AgentInfo
+    SetCwd(cwd string)
+}
+```
+
+### 三种模式对比
+
+| 模式 | 说明 | 优势 | 实现文件 |
+|------|------|------|----------|
+| **ACP** | 长驻子进程，JSON-RPC 2.0 通信 | 速度最快，会话复用 | acp_agent.go (1267行) |
+| **CLI** | 每条消息启动新进程 | 兼容性好，支持 `--resume` | cli_agent.go |
+| **HTTP** | OpenAI 兼容 API | 易于集成，零代码接入 | http_agent.go |
+
+### 支持的 Agent
+`claude`、`codex`、`cursor`、`kimi`、`gemini`、`openclaw`、`opencode`、`pi`、`copilot`、`droid`、`iflow`、`kiro`、`qwen` 等
+
+---
+
+## 4. HTTP Agent 接入方式
+
+### 配置示例 (~/.weclaw/config.json)
+
+```json
+{
+  "default_agent": "gpt",
+  "agents": {
+    "gpt": {
+      "type": "http",
+      "endpoint": "https://api.openai.com/v1/chat/completions",
+      "api_key": "sk-xxx",
+      "model": "gpt-4o-mini",
+      "system_prompt": "你是一个有用的助手",
+      "aliases": ["4o", "chatgpt"]
+    },
+    "deepseek": {
+      "type": "http",
+      "endpoint": "https://api.deepseek.com/v1/chat/completions",
+      "api_key": "sk-xxx",
+      "model": "deepseek-chat",
+      "aliases": ["ds"]
+    },
+    "本地模型": {
+      "type": "http",
+      "endpoint": "http://localhost:11434/v1/chat/completions",
+      "model": "llama3",
+      "aliases": ["llama"]
+    }
+  }
+}
+```
+
+### 可接入的 API
+
+| 服务商 | Endpoint |
+|--------|----------|
+| OpenAI | `https://api.openai.com/v1/chat/completions` |
+| Azure OpenAI | `https://YOUR_RESOURCE.openai.azure.com/...` |
+| DeepSeek | `https://api.deepseek.com/v1/chat/completions` |
+| Moonshot | `https://api.moonshot.cn/v1/chat/completions` |
+| 智谱 AI | `https://open.bigmodel.cn/api/paas/v4/chat/completions` |
+| Ollama 本地 | `http://localhost:11434/v1/chat/completions` |
+| LM Studio | `http://localhost:1234/v1/chat/completions` |
+| vLLM | `http://localhost:8000/v1/chat/completions` |
+
+### HTTP Agent 历史管理原理
+
+**关键：客户端维护历史**
+
+```go
+type HTTPAgent struct {
+    history    map[string][]ChatMessage  // conversationID -> messages
+    maxHistory int                        // 默认 20 轮
+}
+```
+
+**工作流程**：
+1. 构建请求时带上历史 (`buildMessages`)
+2. 收到回复后保存用户消息 + AI 回复到历史
+3. 超过 `maxHistory*2` 时裁剪历史
+
+```go
+func (a *HTTPAgent) buildMessages(conversationID string, message string) []ChatMessage {
+    var messages []ChatMessage
+    // 1. 先加 system prompt
+    if a.systemPrompt != "" {
+        messages = append(messages, ChatMessage{Role: "system", Content: a.systemPrompt})
+    }
+    // 2. 加历史对话
+    if hist, ok := a.history[conversationID]; ok {
+        messages = append(messages, hist...)
+    }
+    // 3. 加当前消息
+    messages = append(messages, ChatMessage{Role: "user", Content: message})
+    return messages
+}
+```
+
+**特点**：
+- 多会话隔离 (`map[conversationID][]ChatMessage`)
+- 重启后历史清空（内存存储）
+- 每次请求带上完整历史（消耗更多 token）
+
+---
+
+## 5. ACP Agent 实现原理
+
+### 架构图
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│    WeClaw       │  ──── stdin ────▶  │  claude-agent   │
+│   (父进程)      │                    │   (子进程)      │
+│                 │  ◀──── stdout ──── │                 │
+└─────────────────┘                    └─────────────────┘
+        │                                      │
+        │         JSON-RPC 2.0 over NDJSON     │
+        └──────────────────────────────────────┘
+```
+
+### 核心架构
+
+#### 1. 长驻子进程 + 懒加载
+
+```go
+func (a *ACPAgent) Start(ctx context.Context) error {
+    a.cmd = exec.CommandContext(ctx, a.command, a.args...)
+    a.cmd.Dir = a.cwd
+
+    // 创建 stdin/stdout 管道
+    a.stdin, _ = a.cmd.StdinPipe()
+    stdout, _ := a.cmd.StdoutPipe()
+
+    // 启动子进程
+    a.cmd.Start()
+
+    // 启动读取协程
+    go a.readLoop()
+
+    // 初始化握手
+    a.call(ctx, "initialize", initParams{...})
+}
+```
+
+- 子进程**只启动一次**，后续请求复用
+- 懒加载：首次 `Chat()` 时才启动
+
+#### 2. 双协议支持
+
+| 协议 | 适用 Agent | 会话模型 |
+|------|-----------|---------|
+| `legacy_acp` | claude-agent-acp, cursor agent | Session 模型 |
+| `codex_app_server` | codex app-server | Thread/Turn 模型 |
+
+#### 3. 请求-响应关联 (pending map)
+
+```go
+type ACPAgent struct {
+    pending   map[int64]chan *rpcResponse  // 请求ID -> 响应channel
+    nextID    atomic.Int64                  // 自增ID生成器
+}
+
+// 发送请求
+id := a.nextID.Add(1)
+a.pending[id] = responseCh
+a.stdin.Write(request)
+
+// readLoop 收到响应
+if msg.ID != nil {
+    a.pending[*msg.ID] <- response  // 唤醒等待的调用
+}
+```
+
+#### 4. 流式响应处理
+
+Agent 的回复是**分块推送**的，通过 `session/update` 通知：
+
+```go
+// 注册通知 channel
+notifyCh := make(chan *sessionUpdate, 256)
+a.notifyCh[sessionID] = notifyCh
+
+// 异步发送 prompt
+go func() {
+    a.call(ctx, "session/prompt", params)
+    promptDone <- struct{}{}
+}()
+
+// 收集流式文本块
+var textParts []string
+for {
+    select {
+    case update := <-notifyCh:
+        if update.SessionUpdate == "agent_message_chunk" {
+            textParts = append(textParts, extractChunkText(update))
+        }
+    case <-promptDone:
+        // 排空剩余通知后返回
+        return strings.Join(textParts, "")
+    }
+}
+```
+
+**消息流**：
+```
+WeClaw                          Agent
+  │                               │
+  │──── session/prompt ──────────▶│
+  │                               │
+  │◀─── session/update (chunk) ───│  "你"
+  │◀─── session/update (chunk) ───│  "好"
+  │◀─── session/update (chunk) ───│  "！"
+  │      ...                      │
+  │◀─── prompt response ──────────│  {stopReason: "end"}
+  │                               │
+  └── 返回完整文本 ────────────────┘
+```
+
+#### 5. 会话管理与隔离
+
+```go
+type ACPAgent struct {
+    sessions map[string]string  // conversationID -> sessionID (legacy ACP)
+    threads  map[string]string  // conversationID -> threadID (codex)
+}
+```
+
+- 每个微信对话独立 session/thread
+- 自动创建，按需复用
+
+#### 6. 自动权限处理
+
+```go
+func (a *ACPAgent) handlePermissionRequest(raw string) {
+    // 找到 "allow" 选项
+    optionID := "allow"
+    for _, opt := range req.Params.Options {
+        if opt.Kind == "allow" {
+            optionID = opt.OptionID
+            break
+        }
+    }
+
+    // 自动发送允许响应
+    resp := map[string]interface{}{
+        "jsonrpc": "2.0",
+        "id":      req.ID,
+        "result":  map[string]interface{}{
+            "outcome": map[string]interface{}{
+                "outcome":  "selected",
+                "optionId": optionID,
+            },
+        },
+    }
+    a.stdin.Write(resp)
+}
+```
+
+---
+
+## 6. JSON-RPC 协议详解
+
+### 核心概念
+
+**JSON-RPC** 是轻量级远程过程调用协议，使用 JSON 作为数据格式。
+
+### 消息格式
+
+#### 请求 (Request)
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "session/prompt",
+  "params": {"sessionId": "xxx", "prompt": [...]}
+}
+```
+
+#### 响应 (Response)
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {"stopReason": "end"}
+}
+```
+
+#### 错误响应
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid request"
+  }
+}
+```
+
+#### 通知 (Notification)
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "session/update",
+  "params": {...}
+}
+```
+**没有 id，不需要响应**，用于单向推送（如流式文本块）。
+
+### JSON-RPC vs REST
+
+| 特性 | JSON-RPC | REST |
+|------|----------|------|
+| **URL** | 单一端点 | 多个资源路径 |
+| **HTTP 方法** | 通常 POST | GET/POST/PUT/DELETE |
+| **语义** | `method: "createUser"` | `POST /users` |
+| **批量请求** | ✅ 原生支持 | ❌ 需自定义 |
+| **通知** | ✅ 支持 | ❌ 需 WebSocket |
+| **传输层** | 任意 | 通常 HTTP |
+
+### 为什么 ACP 选择 JSON-RPC？
+
+1. **简单** - 只有请求、响应、通知三种消息
+2. **灵活** - 不依赖 HTTP，可以用 stdio、socket 等
+3. **双向** - 服务端可以主动推送通知
+4. **标准化** - 规范明确，易于实现
+
+---
+
+## 7. 微信端透明性
+
+### 完全解耦架构
+
+```
+┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+│   微信用户   │  ◀────▶ │   WeClaw    │  ◀────▶ │  AI Agent   │
+│             │         │   (中间层)   │         │ (任意后端)   │
+└─────────────┘         └─────────────┘         └─────────────┘
+      │                        │                       │
+      │    只看到"机器人"回复    │                       │
+      │    不知道背后是什么 AI   │                       │
+      └────────────────────────┘                       │
+```
+
+### 微信协议层只包含纯文本
+
+```go
+SendMessage {
+    To: "user_xxx@im.wechat",
+    Items: [{
+        Type: 1,  // 文本
+        Text: "你好！有什么可以帮助你的？"  // 只有纯文本
+    }]
+}
+```
+
+### 设计优势
+
+| 优势 | 说明 |
+|------|------|
+| **后端无关** | 微信用户无感知，随时切换后端 |
+| **多 Agent** | 命令路由 (`/gpt`, `/claude`) |
+| **安全性** | 不暴露技术架构 |
+| **灵活性** | 可随时添加/移除 Agent |
+
+### 与其他平台对比
+
+| 平台 | 是否显示后端 |
+|------|-------------|
+| ChatGPT | ✅ 显示 "GPT-4" |
+| Claude | ✅ 显示 "Claude 3.5" |
+| Poe | ✅ 显示模型名称 |
+| **WeClaw** | ❌ **完全隐藏** |
+
+---
+
+## 8. 微信 iLink 协议实现
+
+### 核心文件
+
+| 文件 | 功能 |
+|------|------|
+| ilink/types.go | 协议数据类型定义 |
+| ilink/client.go | API 客户端实现 |
+| ilink/auth.go | 登录认证流程 |
+| ilink/monitor.go | 消息监听 |
+| messaging/handler.go | 消息处理逻辑 |
+
+### API 端点
+
+```go
+const defaultBaseURL = "https://ilinkai.weixin.qq.com"
+
+/ilink/bot/get_bot_qrcode    // 获取登录二维码
+/ilink/bot/get_qrcode_status // 查询扫码状态
+/ilink/bot/getupdates        // 长轮询获取消息 (35秒超时)
+/ilink/bot/sendmessage       // 发送消息
+/ilink/bot/sendtyping        // 发送输入状态
+/ilink/bot/getconfig         // 获取配置（含 typing_ticket）
+/ilink/bot/getuploadurl      // 获取 CDN 上传地址
+```
+
+### 消息类型处理
+
+```go
+// 消息类型
+MessageTypeUser = 1   // 用户消息
+MessageTypeBot  = 2   // 机器人消息
+
+// 消息状态
+MessageStateFinish = 2  // 已完成
+
+// 内容类型
+ItemTypeText  = 1   // 文本
+ItemTypeImage = 2   // 图片
+ItemTypeVoice = 3   // 语音
+ItemTypeFile  = 4   // 文件
+ItemTypeVideo = 5   // 视频
+```
+
+### 各类型处理流程
+
+#### 文本 (ItemTypeText = 1)
+- 直接提取 `TextItem.Text`
+- 解析命令 (`/gpt`, `@claude` 等)
+- 路由到对应 Agent
+
+#### 语音 (ItemTypeVoice = 3)
+- **微信服务端已做 ASR 转文字**
+- 直接使用 `VoiceItem.Text`
+- 无需本地语音识别
+
+#### 图片/文件/视频 (ItemType 2/4/5)
+- 优先使用 HTTP URL
+- 否则从 CDN 下载 + AES-128-ECB 解密
+- 保存到本地后传给 Agent
+
+### CDN 加密通信
+
+```go
+// 加密方案
+- AES-128-ECB 模式
+- PKCS7 填充
+- 随机 16 字节 AES 密钥
+
+// 解密流程
+cdnURL := "https://novac2c.cdn.weixin.qq.com/c2c/download?encrypted_query_param=xxx"
+encryptedData := download(cdnURL)
+aesKey := base64Decode(media.AESKey) -> hexDecode()
+decrypted := aes128ECBDecrypt(encryptedData, aesKey)
+
+// 解密代码
+func decryptAES128ECB(encrypted, key []byte) ([]byte, error) {
+    block, _ := aes.NewCipher(key)
+    decrypted := make([]byte, len(encrypted))
+    for i := 0; i < len(encrypted); i += aes.BlockSize {
+        block.Decrypt(decrypted[i:i+aes.BlockSize], encrypted[i:i+aes.BlockSize])
+    }
+    // PKCS7 去填充
+    padding := int(decrypted[len(decrypted)-1])
+    return decrypted[:len(decrypted)-padding], nil
+}
+```
+
+### 与官方协议对齐情况
+
+| 方面 | 状态 | 说明 |
+|------|------|------|
+| API 端点 | ✅ 完全对齐 | 使用腾讯官方域名 |
+| 认证流程 | ✅ 完全对齐 | QRCode → 扫码 → BotToken |
+| 消息结构 | ✅ 完全对齐 | `WeixinMessage` 结构完整 |
+| 消息类型 | ✅ 5 种全支持 | Text/Image/Voice/File/Video |
+| CDN 加密 | ✅ 完全对齐 | AES-128-ECB + PKCS7 |
+| 输入状态 | ✅ 支持 | `sendtyping` API |
+| 会话管理 | ✅ 支持 | `context_token` 传递 |
+
+### 对比官方 SDK
+
+| 特性 | 官方 OpenClaw | WeClaw |
+|------|--------------|--------|
+| 语言 | TypeScript | Go |
+| Agent 支持 | 仅 Claude | 多 Agent (ACP/CLI/HTTP) |
+| 部署 | 需要 Node.js | 单二进制 |
+| 消息类型 | 基础 | 完整 (含媒体) |
+| CDN 加密 | ❓ | ✅ 完整实现 |
+
+---
+
+## 9. ACP vs HTTP vs CLI 全面对比
+
+| 特性 | ACP | HTTP | CLI |
+|------|-----|------|-----|
+| **启动方式** | 长驻子进程 | HTTP 请求 | 每次新进程 |
+| **通信协议** | stdio + JSON-RPC | REST API | 命令行参数 |
+| **会话管理** | Agent 内部 | WeClaw 本地 | --resume 参数 |
+| **流式响应** | ✅ 实时推送 | ❌ 批量返回 | ✅ 实时输出 |
+| **性能** | ⚡ 最快 | 🚀 快 | 🐢 慢（启动开销） |
+| **适用场景** | 本地 Agent | 云端 API | 简单集成 |
+| **历史管理** | Agent 内部维护 | WeClaw 内存维护 | 外部文件 |
+
+---
+
+## 10. 命令系统
+
+### 内置命令
+
+```
+/info           → 显示当前 Agent 状态
+/help           → 显示帮助信息
+/new 或 /clear  → 重置会话
+/cwd /path      → 切换工作目录
+```
+
+### Agent 路由
+
+```
+"hello"              → 发送给默认 Agent
+"/gpt 你好"          → 发送给 gpt Agent
+"@claude @codex 你好" → 广播给多个 Agent
+"/claude"            → 切换默认 Agent 为 claude
+```
+
+### 内置别名
+
+```go
+var agentAliases = map[string]string{
+    "cc":  "claude",
+    "cx":  "codex",
+    "oc":  "openclaw",
+    "cs":  "cursor",
+    "km":  "kimi",
+    "gm":  "gemini",
+    "ocd": "opencode",
+    "pi":  "pi",
+    "cp":  "copilot",
+    "dr":  "droid",
+    "if":  "iflow",
+    "kr":  "kiro",
+    "qw":  "qwen",
+}
+```
+
+---
+
+## 11. 依赖分析
+
+```go
+require (
+    github.com/google/uuid v1.6.0      // UUID 生成
+    github.com/mdp/qrterminal/v3 v3.2.1 // 终端二维码显示
+    github.com/spf13/cobra v1.10.2     // CLI 框架
+    golang.org/x/net v0.52.0           // HTTP 客户端
+    rsc.io/qr v0.2.0                   // QR 码生成
+)
+```
+
+项目依赖精简，全部使用标准库和少量必要第三方库。
+
+---
+
+## 12. 设计亮点总结
+
+| 亮点 | 说明 |
+|------|------|
+| **统一接口抽象** | Agent 接口支持插件式扩展 |
+| **长驻进程** | ACP 模式避免重复启动，响应最快 |
+| **异步 readLoop** | 单协程处理所有响应，避免并发复杂性 |
+| **pending map** | 优雅的请求-响应关联，支持并发请求 |
+| **notifyCh 分发** | 按会话 ID 路由通知，支持多会话并行 |
+| **双协议兼容** | 同时支持 legacy ACP 和 codex app-server |
+| **自动权限** | 无感处理工具调用权限，用户体验好 |
+| **流式聚合** | 实时收集文本块，最终返回完整响应 |
+| **后端无关** | 微信用户无感知，随时切换后端 |
+| **零代码接入** | HTTP Agent 纯配置即可接入任意 OpenAI 兼容 API |
+| **协议完整** | 完整实现微信 iLink 协议和多种 AI Agent 协议 |
+| **安全可靠** | 完整的 CDN 加密通信实现 |
+| **运维成熟** | 完善的部署和更新机制 |
+
+---
+
+## 13. 学习价值
+
+WeClaw 是一个优秀的学习案例，涵盖：
+
+1. **Go 并发编程** - goroutine、channel、sync.Map、atomic
+2. **进程间通信** - stdio 管道、JSON-RPC 协议
+3. **协议实现** - 微信 iLink、OpenAI API 兼容
+4. **加密算法** - AES-128-ECB、PKCS7 填充
+5. **架构设计** - 接口抽象、插件模式、中间层设计
+6. **CLI 开发** - Cobra 框架、系统服务集成
+
+该项目适合作为学习微信机器人开发和 AI Agent 集成的优秀参考案例。
+
+````
+
+[⬆ 回到目录](#toc)
+
 <a name="file-go.mod"></a>
 ## 📄 go.mod
 
@@ -8228,6 +8901,6 @@ WantedBy=multi-user.target
 
 ---
 ### 📊 最终统计汇总
-- **文件总数:** 47
-- **代码总行数:** 7746
-- **物理总大小:** 206.16 KB
+- **文件总数:** 48
+- **代码总行数:** 8409
+- **物理总大小:** 225.10 KB

@@ -102,6 +102,12 @@ func (a *CLIAgent) SetCwd(cwd string) {
 	a.cwd = cwd
 }
 
+// SetProgressCallback sets a callback for progress notifications.
+// CLI agent doesn't support progress notifications, so this is a no-op.
+func (a *CLIAgent) SetProgressCallback(callback ProgressCallback) {
+	// CLI agent runs in separate processes, can't report progress
+}
+
 // Chat sends a message to the CLI agent and returns the response.
 func (a *CLIAgent) Chat(ctx context.Context, conversationID string, message string) (string, error) {
 	switch a.name {

@@ -799,8 +799,8 @@ func (h *Handler) handleCwd(trimmed string) string {
 	return fmt.Sprintf("cwd: %s", absPath)
 }
 
-// hubReplyHint is prepended to /save messages to instruct the agent to return full content.
-const hubReplyHint = "请直接返回完整内容，不要写入本地文件。\n\n"
+// hubReplyHint is prepended to /save messages to instruct the agent to return full content directly.
+const hubReplyHint = "[系统指令] 你只需要直接回复文本内容。不要创建、写入或保存任何文件。不要请求授权。直接输出你的完整回复即可。\n\n"
 
 // handleSave processes the /save command: sends message to agent, saves reply to hub.
 // Usage: /save {filename} {message} — or just /save {filename} when replying to context
@@ -1033,7 +1033,7 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 
 	// Build prompt with clear instruction to respond based ONLY on provided context
 	wrappedMessage := fmt.Sprintf(
-		"以下是从 Agent Hub 读取的共享上下文，请基于此内容回复，不要引用上下文之外的会话历史：\n\n%s\n\n请回复以上内容相关的：%s",
+		"[系统指令] 你只需要直接回复文本内容。不要创建、写入或保存任何文件。不要请求授权。\n\n以下是从 Agent Hub 读取的共享上下文，请基于此内容回复，不要引用上下文之外的会话历史：\n\n%s\n\n请回复以上内容相关的：%s",
 		hubContext, message,
 	)
 

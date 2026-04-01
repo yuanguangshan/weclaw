@@ -264,6 +264,9 @@ func (h *Handler) parseCommand(text string) ([]string, string) {
 			break
 		}
 
+		// Save original rest before parsing this token (needed if it's a builtin command)
+		originalRest := rest
+
 		// Strip prefix
 		after := rest[1:]
 		idx := strings.IndexAny(after, " /@")
@@ -285,6 +288,8 @@ func (h *Handler) parseCommand(text string) ([]string, string) {
 		if token != "" {
 			// Don't parse built-in commands as agent names
 			if isBuiltinCommand("/" + token) {
+				// Keep the built-in command in rest so it can be matched by the router
+				rest = originalRest
 				break
 			}
 			names = append(names, h.resolveAlias(token))
@@ -393,7 +398,6 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 	if len(parsedAgentNames) > 0 {
 		effectiveTrimmed = strings.TrimSpace(parsedMessage)
 	}
-	log.Printf("[handler] route: trimmed=%q, parsedAgentNames=%v, effectiveTrimmed=%q", trimmed, parsedAgentNames, effectiveTrimmed)
 
 	// Built-in commands (no typing needed)
 handleBuiltinCommand:
@@ -953,7 +957,6 @@ func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilin
 //   /hub clear                  — clear all hub files
 func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
 	// Parse: /hub [filename] [message] | /hub ls | /hub clear
-	log.Printf("[handler] handleHub called with trimmed=%q", trimmed)
 	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/hub"))
 
 	// No arguments → list files
@@ -1093,7 +1096,6 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 		"【重要】请直接基于下方提供的材料回答问题。禁止使用任何工具（搜索、读文件、写文件等），不要访问文件系统，不要搜索网络。材料已完整提供给你，直接分析即可。\n\n---\n共享材料：\n%s\n---\n\n问题：%s",
 		hubContext, message,
 	)
-	log.Printf("[handler] hub wrappedMessage length=%d, hubContext length=%d, message=%q", len(wrappedMessage), len(hubContext), message)
 
 	reply, err := h.chatWithAgent(ctx, ag, conversationID, wrappedMessage, client, msg.ContextToken)
 	if err != nil {

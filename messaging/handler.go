@@ -1091,6 +1091,7 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 		"【重要】请直接基于下方提供的材料回答问题。禁止使用任何工具（搜索、读文件、写文件等），不要访问文件系统，不要搜索网络。材料已完整提供给你，直接分析即可。\n\n---\n共享材料：\n%s\n---\n\n问题：%s",
 		hubContext, message,
 	)
+	log.Printf("[handler] hub wrappedMessage length=%d, hubContext length=%d, message=%q", len(wrappedMessage), len(hubContext), message)
 
 	reply, err := h.chatWithAgent(ctx, ag, conversationID, wrappedMessage, client, msg.ContextToken)
 	if err != nil {

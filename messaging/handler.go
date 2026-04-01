@@ -224,12 +224,33 @@ func (h *Handler) resolveAlias(name string) string {
 	return name
 }
 
+// isBuiltinCommand returns true if the text starts with a built-in weclaw command.
+// These should NOT be parsed as agent name prefixes.
+func isBuiltinCommand(text string) bool {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub"} {
+		if strings.HasPrefix(text, cmd) {
+			// Make sure it's the command itself, not an agent name that starts with "help" etc.
+			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
+			rest := strings.TrimPrefix(text, cmd)
+			return rest == "" || strings.HasPrefix(rest, " ")
+		}
+	}
+	return false
+}
+
 // parseCommand checks if text starts with "/" or "@" followed by agent name(s).
 // Supports multiple agents: "@cc @cx hello" returns (["claude","codex"], "hello").
 // Returns (agentNames, actualMessage). Aliases are resolved automatically.
 // If no command prefix, returns (nil, originalText).
+// Built-in commands (/help, /save, /hub, etc.) are NOT parsed as agent names.
 func (h *Handler) parseCommand(text string) ([]string, string) {
 	if !strings.HasPrefix(text, "/") && !strings.HasPrefix(text, "@") {
+		return nil, text
+	}
+
+	// Don't parse built-in commands as agent prefixes
+	trimmed := strings.TrimSpace(text)
+	if isBuiltinCommand(trimmed) {
 		return nil, text
 	}
 

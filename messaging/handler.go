@@ -393,6 +393,7 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 	if len(parsedAgentNames) > 0 {
 		effectiveTrimmed = strings.TrimSpace(parsedMessage)
 	}
+	log.Printf("[handler] route: trimmed=%q, parsedAgentNames=%v, effectiveTrimmed=%q", trimmed, parsedAgentNames, effectiveTrimmed)
 
 	// Built-in commands (no typing needed)
 handleBuiltinCommand:

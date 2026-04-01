@@ -357,41 +357,64 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 		}
 	}
 
+	// Pre-parse agent prefix so "@agent /hub ..." and "@agent /save ..." work correctly.
+	// Without this, "/hub" check on trimmed (which starts with "@agent") would fail,
+	// causing the command to be forwarded raw to the agent instead of being handled by weclaw.
+	parsedAgentNames, parsedMessage := h.parseCommand(text)
+
+	// Build effective trimmed (strip agent prefix if present)
+	effectiveTrimmed := trimmed
+	if len(parsedAgentNames) > 0 {
+		effectiveTrimmed = strings.TrimSpace(parsedMessage)
+	}
+
 	// Built-in commands (no typing needed)
-	if trimmed == "/info" {
+	if effectiveTrimmed == "/info" {
 		reply := h.buildStatus()
 		if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 			log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
 		}
 		return
-	} else if trimmed == "/help" {
+	} else if effectiveTrimmed == "/help" {
 		reply := buildHelpText()
 		if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 			log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
 		}
 		return
-	} else if trimmed == "/new" || trimmed == "/clear" {
+	} else if effectiveTrimmed == "/new" || effectiveTrimmed == "/clear" {
 		reply := h.resetDefaultSession(ctx, msg.FromUserID)
 		if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 			log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
 		}
 		return
-	} else if strings.HasPrefix(trimmed, "/cwd") {
-		reply := h.handleCwd(trimmed)
+	} else if strings.HasPrefix(effectiveTrimmed, "/cwd") {
+		reply := h.handleCwd(effectiveTrimmed)
 		if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 			log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
 		}
 		return
-	} else if strings.HasPrefix(trimmed, "/save") {
-		reply := h.handleSave(ctx, client, msg, trimmed, clientID)
+	} else if strings.HasPrefix(effectiveTrimmed, "/save") {
+		// Reconstruct trimmed to include agent prefix for handleSave parsing
+		// handleSave expects "/save @agent filename message" or "/save filename message"
+		saveTrimmed := effectiveTrimmed
+		if len(parsedAgentNames) > 0 {
+			saveTrimmed = "/save @" + parsedAgentNames[0] + " " + strings.TrimPrefix(effectiveTrimmed, "/save")
+		}
+		reply := h.handleSave(ctx, client, msg, strings.TrimSpace(saveTrimmed), clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
 			}
 		}
 		return
-	} else if strings.HasPrefix(trimmed, "/hub") {
-		reply := h.handleHub(ctx, client, msg, trimmed, clientID)
+	} else if strings.HasPrefix(effectiveTrimmed, "/hub") {
+		// Reconstruct trimmed to include agent prefix for handleHub parsing
+		// handleHub expects "/hub @agent filename message" or "/hub filename message"
+		hubTrimmed := effectiveTrimmed
+		if len(parsedAgentNames) > 0 {
+			hubTrimmed = "/hub @" + parsedAgentNames[0] + " " + strings.TrimPrefix(effectiveTrimmed, "/hub")
+		}
+		reply := h.handleHub(ctx, client, msg, strings.TrimSpace(hubTrimmed), clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -401,7 +424,9 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 	}
 
 	// Route: "/agentname message" or "@agent1 @agent2 message" -> specific agent(s)
-	agentNames, message := h.parseCommand(text)
+	// Reuse pre-parsed values from above
+	agentNames := parsedAgentNames
+	message := parsedMessage
 
 	// No command prefix -> send to default agent
 	if len(agentNames) == 0 {

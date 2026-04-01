@@ -774,6 +774,9 @@ func (h *Handler) handleCwd(trimmed string) string {
 	return fmt.Sprintf("cwd: %s", absPath)
 }
 
+// hubReplyHint is prepended to /save messages to instruct the agent to return full content.
+const hubReplyHint = "请直接返回完整内容，不要写入本地文件。\n\n"
+
 // handleSave processes the /save command: sends message to agent, saves reply to hub.
 // Usage: /save {filename} {message} — or just /save {filename} when replying to context
 func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
@@ -835,8 +838,17 @@ func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilin
 		}
 	}()
 
+	// Use agent-specific conversationID to avoid polluting default session
+	conversationID := msg.FromUserID
+	if agentName != "" {
+		conversationID = "hub:" + agentName + ":" + msg.FromUserID
+	}
+
+	// Prepend hint so agent returns full content instead of writing to local files
+	fullMessage := hubReplyHint + message
+
 	// Send to agent
-	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message, client, msg.ContextToken)
+	reply, err := h.chatWithAgent(ctx, ag, conversationID, fullMessage, client, msg.ContextToken)
 	if err != nil {
 		return fmt.Sprintf("Agent 错误: %v", err)
 	}
@@ -854,10 +866,11 @@ func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilin
 
 // handleHub processes the /hub command: reads shared context and optionally sends to agent.
 // Usage:
-//   /hub {message}          — read all shared files, inject context, send to default agent
-//   /hub {filename} {msg}   — read specific file, inject, send to agent
-//   /hub ls                 — list files in hub
-//   /hub clear              — clear all hub files
+//   /hub {message}              — read all shared files, inject context, send to default agent
+//   /hub {filename} {msg}       — read specific file, inject, send to agent
+//   /hub {filename} {msg}       — if filename ends with .md, save reply to hub
+//   /hub ls                     — list files in hub
+//   /hub clear                  — clear all hub files
 func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
 	// Parse: /hub [filename] [message] | /hub ls | /hub clear
 	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/hub"))
@@ -914,6 +927,7 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 	var hubContext string
 	var message string
 	var targetAgentName string
+	var saveFilename string // if set, auto-save reply to hub
 
 	// Check if first word is an agent reference
 	wordIdx := 0
@@ -937,7 +951,13 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 			return fmt.Sprintf("读取文件失败: %v", err)
 		}
 		hubContext = ctx2
-		message = strings.Join(words[wordIdx+1:], " ")
+		// If message follows and the hub file name looks like a save target (.md),
+		// use it as save filename for the reply
+		if len(words) > wordIdx+1 {
+			message = strings.Join(words[wordIdx+1:], " ")
+		} else {
+			message = ""
+		}
 	} else {
 		// Read all shared files
 		ctx2, err := h.hub.ReadAll()
@@ -956,22 +976,24 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 		return hubContext
 	}
 
-	// Build prompt with context
-	prompt := hub.BuildPrompt(hubContext, message)
-
 	// Determine target agent
 	var ag agent.Agent
+	var resolvedAgentName string
 	if targetAgentName != "" {
 		var err error
 		ag, err = h.getAgent(ctx, targetAgentName)
 		if err != nil {
 			return fmt.Sprintf("Agent %q 不可用: %v", targetAgentName, err)
 		}
+		resolvedAgentName = targetAgentName
 	} else {
 		ag = h.getDefaultAgent()
 		if ag == nil {
 			return "没有可用的 agent"
 		}
+		h.mu.RLock()
+		resolvedAgentName = h.defaultName
+		h.mu.RUnlock()
 	}
 
 	// Send typing
@@ -981,16 +1003,31 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 		}
 	}()
 
-	// Determine conversationID for routing
-	conversationID := msg.FromUserID
-	if targetAgentName != "" {
-		// Use agent-specific conversation to avoid polluting default session
-		conversationID = "hub:" + targetAgentName + ":" + msg.FromUserID
-	}
+	// Always use agent-specific conversationID to avoid polluting default session
+	conversationID := "hub:" + resolvedAgentName + ":" + msg.FromUserID
 
-	reply, err := h.chatWithAgent(ctx, ag, conversationID, prompt, client, msg.ContextToken)
+	// Build prompt with clear instruction to respond based ONLY on provided context
+	wrappedMessage := fmt.Sprintf(
+		"以下是从 Agent Hub 读取的共享上下文，请基于此内容回复，不要引用上下文之外的会话历史：\n\n%s\n\n请回复以上内容相关的：%s",
+		hubContext, message,
+	)
+
+	reply, err := h.chatWithAgent(ctx, ag, conversationID, wrappedMessage, client, msg.ContextToken)
 	if err != nil {
 		return fmt.Sprintf("Agent 错误: %v", err)
+	}
+
+	// Auto-detect save filename from conversation flow:
+	// If the injected file was round1.md and this is round2, suggest saving as round2
+	// But only save if user explicitly used a .md filename as the hub file reference
+	if saveFilename != "" {
+		savePath, err := h.hub.Save(saveFilename, reply, resolvedAgentName)
+		if err != nil {
+			log.Printf("[handler] hub auto-save failed: %v", err)
+		} else {
+			log.Printf("[handler] auto-saved hub reply to: %s (agent=%s)", savePath, resolvedAgentName)
+			return reply + fmt.Sprintf("\n\n✅ 已保存到 Hub: %s", saveFilename)
+		}
 	}
 
 	return reply
@@ -1062,7 +1099,7 @@ Agent Hub (cross-agent collaboration):
 /hub - List shared context files
 /hub {msg} - Read all shared files, inject context, send to agent
 /hub {file} {msg} - Read specific file, inject, send to agent
-/hub ls - List hub files
+		/hub ls - List hub files
 /hub clear - Clear all hub files
 /save {file} {msg} - Send to agent, save reply to hub
 

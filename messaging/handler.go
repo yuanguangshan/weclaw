@@ -283,6 +283,10 @@ func (h *Handler) parseCommand(text string) ([]string, string) {
 		}
 
 		if token != "" {
+			// Don't parse built-in commands as agent names
+			if isBuiltinCommand("/" + token) {
+				break
+			}
 			names = append(names, h.resolveAlias(token))
 		}
 

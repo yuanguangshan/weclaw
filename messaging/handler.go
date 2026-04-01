@@ -1174,36 +1174,27 @@ func buildHelpText() string {
 	return `🤖 WeClaw Agent Hub
 
 📌 基本指令
-  @agent         - 切换默认 agent
-  @agent msg     - 发消息给指定 agent
-  @a @b msg      - 广播给多个 agent
-  /new /clear    - 开始新会话
-  /cwd /path     - 切换工作目录
-  /info          - 显示当前 agent 信息
-  /help          - 显示帮助
+  @agent msg       发给指定 agent
+  @a @b msg        广播给多个 agent
+  @agent           切换默认 agent
+  /new /clear      新会话
+  /cwd /path       切换工作目录
+  /info /help      信息 / 帮助
 
-📂 Agent 列表（默认: nanobot）
-  nanobot (nb, n, bot)      ACP - 本地 Python Agent
-  claude  (c)               CLI - Claude Sonnet
-  gemini  (g)               ACP - Gemini 2.5 Flash
-  deepseek (ds)             HTTP - DeepSeek Chat
-  pa      (p)               HTTP - Assistant (aiproxy)
-  ps                        HTTP - Claude Sonnet 4.6 (aiproxy)
-  po                        HTTP - GPT-5.4-mini (aiproxy)
-  pg                        HTTP - Gemini 3 Flash (aiproxy)
-  zhipu   (glm, z)          HTTP - GLM-5-Turbo (智谱)
+📂 Agent（默认: nanobot）
+  nanobot(nb,n,bot)  claude(c)  gemini(g)  deepseek(ds)
+  pa(p)  ps  po  pg  zhipu(glm,z)
 
-🔗 Hub（跨 Agent 上下文共享）
-  /hub           - 列出共享文件
-  /hub {msg}     - 读取所有共享文件，注入上下文后发给 agent
-  /hub {file} {msg} - 读取指定文件，注入后发给 agent
-  /hub ls        - 列出共享文件
-  /hub clear     - 清空共享文件
+🔗 Hub · 跨 Agent 上下文共享
+  /hub              列出共享文件
+  /hub {msg}        注入所有共享文件后发给 agent
+  /hub {file} {msg} 注入指定文件后发给 agent
+  /hub ls /clear    列出 / 清空
 
-💾 /save {file} {msg} - 发给 agent 并将回复保存到 Hub
-  /save {file} @agent {msg} - 指定 agent 并保存回复
+💾 /save {file} {msg}          发给 agent 并保存回复
+     /save {file} @agent {msg}  指定 agent 并保存回复
 
-💡 示例：多 Agent 辩论
+💡 多 Agent 辩论示例
   /save round1.md AI应该替代人类决策
   @gemini /hub round1.md 反驳以上观点
   /save round2.md @gemini 从技术角度反驳

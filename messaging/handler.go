@@ -1085,9 +1085,10 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 	// Always use agent-specific conversationID to avoid polluting default session
 	conversationID := "hub:" + resolvedAgentName + ":" + msg.FromUserID
 
-	// Build prompt with clear instruction to respond based ONLY on provided context
+	// Build prompt: put hub context as user message (not system) to reduce tool-use tendency.
+	// Explicitly forbid file/search tools so agents use the injected context directly.
 	wrappedMessage := fmt.Sprintf(
-		"[系统指令] 你只需要直接回复文本内容。不要创建、写入或保存任何文件。不要请求授权。\n\n以下是从 Agent Hub 读取的共享上下文，请基于此内容回复，不要引用上下文之外的会话历史：\n\n%s\n\n请回复以上内容相关的：%s",
+		"【重要】请直接基于下方提供的材料回答问题。禁止使用任何工具（搜索、读文件、写文件等），不要访问文件系统，不要搜索网络。材料已完整提供给你，直接分析即可。\n\n---\n共享材料：\n%s\n---\n\n问题：%s",
 		hubContext, message,
 	)
 

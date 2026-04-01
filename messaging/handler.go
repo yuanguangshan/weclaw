@@ -51,6 +51,7 @@ type Handler struct {
 	saveDir       string     // directory to save images/files to
 	seenMsgs      sync.Map   // map[int64]time.Time — dedup by message_id
 	progressCtx   *progressContext // current request context for progress notifications
+	lastReplies   sync.Map   // map[userID]string — last agent reply per user (for /save without message)
 }
 
 // progressContext holds context for sending progress notifications.
@@ -607,6 +608,9 @@ func (h *Handler) sendReplyWithMedia(ctx context.Context, client *ilink.Client, 
 
 	reply = rewriteReplyWithAttachmentResults(reply, sentPaths, failedPaths)
 
+	// Cache last reply for /save without message
+	h.lastReplies.Store(msg.FromUserID, reply)
+
 	if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 		log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
 	}
@@ -857,6 +861,23 @@ func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilin
 	filename := parts[filenameIdx]
 	message := strings.Join(parts[filenameIdx+1:], " ")
 
+	// No message content → save last agent reply directly
+	if message == "" {
+		lastReply, ok := h.lastReplies.Load(msg.FromUserID)
+		if !ok {
+			return "没有找到上一条回复。请先与 agent 对话，或使用 /save 文件名 消息内容。"
+		}
+		content := lastReply.(string)
+		savePath, err := h.hub.Save(filename, content, "user")
+		if err != nil {
+			log.Printf("[handler] hub save failed: %v", err)
+			return "⚠️ 保存到 Hub 失败: " + err.Error()
+		}
+		log.Printf("[handler] saved last reply to hub: %s", savePath)
+		return fmt.Sprintf("✅ 已保存上一条回复到 Hub: %s", filename)
+	}
+
+	// Has message content → send to agent, save agent's reply
 	// Determine which agent to use
 	var ag agent.Agent
 	var useName string

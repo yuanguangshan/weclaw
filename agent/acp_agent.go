@@ -44,7 +44,11 @@ type ACPAgent struct {
 	notifyCh map[string]chan *sessionUpdate // sessionID -> channel
 	turnCh   map[string]chan *codexTurnEvent
 
-	stderr          *acpStderrWriter // captures stderr for error reporting
+	stderr *acpStderrWriter // captures stderr for error reporting
+
+	// rpcCall allows tests to stub JSON-RPC interactions without a subprocess.
+	rpcCall func(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
+
 	progressCallback ProgressCallback // progress notification callback
 }
 
@@ -273,7 +277,7 @@ func (a *ACPAgent) Start(ctx context.Context) error {
 	log.Printf("[acp] sending initialize handshake (pid=%d, protocol=%s)...", pid, a.protocol)
 	var result json.RawMessage
 	if a.protocol == protocolCodexAppServer {
-		result, err = a.call(initCtx, "initialize", map[string]interface{}{
+		result, err = a.rpc(initCtx, "initialize", map[string]interface{}{
 			"clientInfo": map[string]string{"name": "weclaw", "version": "0.3.0"},
 		})
 		if err == nil {
@@ -281,7 +285,7 @@ func (a *ACPAgent) Start(ctx context.Context) error {
 			err = a.notify("initialized", nil)
 		}
 	} else {
-		result, err = a.call(initCtx, "initialize", initParams{
+		result, err = a.rpc(initCtx, "initialize", initParams{
 			ProtocolVersion: 1,
 			ClientCapabilities: clientCapabilities{
 				FS: &fsCapabilities{ReadTextFile: true, WriteTextFile: true},
@@ -354,6 +358,19 @@ func (a *ACPAgent) sendProgress(ctx context.Context, event ProgressEvent) {
 // ResetSession clears the existing session for the given conversationID and
 // immediately creates a new one, returning the new session ID.
 func (a *ACPAgent) ResetSession(ctx context.Context, conversationID string) (string, error) {
+	if a.protocol == protocolCodexAppServer {
+		a.mu.Lock()
+		delete(a.threads, conversationID)
+		a.mu.Unlock()
+		log.Printf("[acp] thread reset (conversation=%s), creating new thread", conversationID)
+
+		threadID, _, err := a.getOrCreateThread(ctx, conversationID)
+		if err != nil {
+			return "", fmt.Errorf("create new thread: %w", err)
+		}
+		return threadID, nil
+	}
+
 	a.mu.Lock()
 	delete(a.sessions, conversationID)
 	a.mu.Unlock()
@@ -411,7 +428,7 @@ func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message stri
 	}
 	promptDone := make(chan promptDoneMsg, 1)
 	go func() {
-		result, err := a.call(ctx, "session/prompt", promptParams{
+		result, err := a.rpc(ctx, "session/prompt", promptParams{
 			SessionID: sessionID,
 			Prompt:    []promptEntry{{Type: "text", Text: message}},
 		})
@@ -705,7 +722,7 @@ func (a *ACPAgent) getOrCreateSession(ctx context.Context, conversationID string
 		return sid, false, nil
 	}
 
-	result, err := a.call(ctx, "session/new", newSessionParams{
+	result, err := a.rpc(ctx, "session/new", newSessionParams{
 		Cwd:        a.cwd,
 		McpServers: []interface{}{},
 	})
@@ -744,7 +761,7 @@ func (a *ACPAgent) getOrCreateThread(ctx context.Context, conversationID string)
 	if a.model != "" {
 		params["model"] = a.model
 	}
-	result, err := a.call(ctx, "thread/start", params)
+	result, err := a.rpc(ctx, "thread/start", params)
 	if err != nil {
 		return "", false, err
 	}
@@ -801,7 +818,7 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 
 	// Start turn (call returns quickly with turn info, actual content comes via events)
 	go func() {
-		_, err := a.call(ctx, "turn/start", codexTurnStartParams{
+		_, err := a.rpc(ctx, "turn/start", codexTurnStartParams{
 			ThreadID:       threadID,
 			ApprovalPolicy: "never",
 			Input:          []codexUserInput{{Type: "text", Text: message}},
@@ -840,6 +857,13 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 			}
 		}
 	}
+}
+
+func (a *ACPAgent) rpc(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
+	if a.rpcCall != nil {
+		return a.rpcCall(ctx, method, params)
+	}
+	return a.call(ctx, method, params)
 }
 
 // notify sends a JSON-RPC notification (no id, no response expected).

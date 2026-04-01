@@ -1171,24 +1171,43 @@ func (h *Handler) analyzeWithNanobot(ctx context.Context, client *ilink.Client, 
 }
 
 func buildHelpText() string {
-	return `Available commands:
-@agent or /agent - Switch default agent
-@agent msg or /agent msg - Send to a specific agent
-@a @b msg - Broadcast to multiple agents
-/new or /clear - Start a new session
-/cwd /path - Switch workspace directory
-/info - Show current agent info
-/help - Show this help message
+	return `🤖 WeClaw Agent Hub
 
-Agent Hub (cross-agent collaboration):
-/hub - List shared context files
-/hub {msg} - Read all shared files, inject context, send to agent
-/hub {file} {msg} - Read specific file, inject, send to agent
-		/hub ls - List hub files
-/hub clear - Clear all hub files
-/save {file} {msg} - Send to agent, save reply to hub
+📌 基本指令
+  @agent         - 切换默认 agent
+  @agent msg     - 发消息给指定 agent
+  @a @b msg      - 广播给多个 agent
+  /new /clear    - 开始新会话
+  /cwd /path     - 切换工作目录
+  /info          - 显示当前 agent 信息
+  /help          - 显示帮助
 
-Aliases: /cc(claude) /cx(codex) /cs(cursor) /km(kimi) /gm(gemini) /oc(openclaw) /ocd(opencode) /pi(pi) /cp(copilot) /dr(droid) /if(iflow) /kr(kiro) /qw(qwen)`
+📂 Agent 列表（默认: nanobot）
+  nanobot (nb, n, bot)      ACP - 本地 Python Agent
+  claude  (c)               CLI - Claude Sonnet
+  gemini  (g)               ACP - Gemini 2.5 Flash
+  deepseek (ds)             HTTP - DeepSeek Chat
+  pa      (p)               HTTP - Assistant (aiproxy)
+  ps                        HTTP - Claude Sonnet 4.6 (aiproxy)
+  po                        HTTP - GPT-5.4-mini (aiproxy)
+  pg                        HTTP - Gemini 3 Flash (aiproxy)
+  zhipu   (glm, z)          HTTP - GLM-5-Turbo (智谱)
+
+🔗 Hub（跨 Agent 上下文共享）
+  /hub           - 列出共享文件
+  /hub {msg}     - 读取所有共享文件，注入上下文后发给 agent
+  /hub {file} {msg} - 读取指定文件，注入后发给 agent
+  /hub ls        - 列出共享文件
+  /hub clear     - 清空共享文件
+
+💾 /save {file} {msg} - 发给 agent 并将回复保存到 Hub
+  /save {file} @agent {msg} - 指定 agent 并保存回复
+
+💡 示例：多 Agent 辩论
+  /save round1.md AI应该替代人类决策
+  @gemini /hub round1.md 反驳以上观点
+  /save round2.md @gemini 从技术角度反驳
+  @claude /hub round2.md 回应技术派的反驳`
 }
 
 func extractText(msg ilink.WeixinMessage) string {

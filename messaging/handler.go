@@ -391,6 +391,7 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 	}
 
 	// Built-in commands (no typing needed)
+handleBuiltinCommand:
 	if effectiveTrimmed == "/info" {
 		reply := h.buildStatus()
 		if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
@@ -483,7 +484,14 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 		}
 	}
 	if len(knownNames) == 0 {
-		// No known agents -> forward entire text to default agent
+		// No known agents — check if the remaining message is a built-in command
+		// e.g. "@gpt /hub ..." should be treated as "/hub ..."
+		restMsg := strings.TrimSpace(parsedMessage)
+		if isBuiltinCommand(restMsg) {
+			effectiveTrimmed = restMsg
+			goto handleBuiltinCommand
+		}
+		// Forward entire text to default agent
 		h.sendToDefaultAgent(ctx, client, msg, text, clientID)
 		return
 	}

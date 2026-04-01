@@ -952,6 +952,7 @@ func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilin
 //   /hub clear                  — clear all hub files
 func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
 	// Parse: /hub [filename] [message] | /hub ls | /hub clear
+	log.Printf("[handler] handleHub called with trimmed=%q", trimmed)
 	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/hub"))
 
 	// No arguments → list files

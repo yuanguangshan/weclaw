@@ -1033,10 +1033,10 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 		// /hub pipe <target_agent> <message>
 		// /hub pipe <target_agent> @<编号> <message>  (使用 Hub 文件编号引用)
 		// /hub pipe <target_agent> @-1 <message>    (使用最新文件)
-		// /hub pipe <target_agent> @<文件名> <message>  (直接引用文件名)
+		// /hub pipe <target_agent> @<文件名> <消息>  (直接引用文件名，支持部分匹配)
 		parts := strings.Fields(rest)
 		if len(parts) < 2 {
-			return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n       /hub pipe <目标agent> @-1 <消息>\n       /hub pipe <目标agent> @<文件名> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @pipe_xxx.md 继续分析"
+			return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n       /hub pipe <目标agent> @-1 <消息>\n       /hub pipe <目标agent> @<文件名> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @gemini 继续分析 (部分匹配)\n      /hub pipe claude @gem 继续分析 (简写)"
 		}
 		targetAgent := parts[1]
 		var message string
@@ -1048,7 +1048,7 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 			// 普通模式: /hub pipe <agent> <message>
 			message = strings.Join(parts[2:], " ")
 			if message == "" {
-				return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n       /hub pipe <目标agent> @-1 <消息>\n       /hub pipe <目标agent> @<文件名> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @pipe_xxx.md 继续分析"
+				return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n       /hub pipe <目标agent> @-1 <消息>\n       /hub pipe <目标agent> @<文件名> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @gemini 继续分析 (部分匹配)\n      /hub pipe claude @gem 继续分析 (简写)"
 			}
 		}
 		return h.handlePipe(ctx, client, msg, targetAgent, message, clientID)
@@ -1237,9 +1237,11 @@ func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilin
 			// 否则需要提取文件名部分（遇到空格为止）
 			if spaceIdx := strings.Index(refStr, " "); spaceIdx > 0 {
 				refFilename = refStr[:spaceIdx]
+			} else {
+				refFilename = refStr
 			}
 
-			// 检查文件是否存在
+			// 先尝试完全匹配
 			if h.hub.Exists(refFilename) {
 				content, cerr := h.hub.ReadFile(refFilename)
 				if cerr != nil {
@@ -1250,7 +1252,20 @@ func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilin
 				sourceAgentName = fmt.Sprintf("Hub[%s]", refFilename)
 				log.Printf("[hub/pipe] using hub file reference @%s", refFilename)
 			} else {
-				return fmt.Sprintf("❌ 无效的引用语法\n支持格式: @<编号>(如@1、@-1)、@<文件名>(如@pipe_xxx.md)\n示例: /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @pipe_xxx.md 继续分析")
+				// 尝试部分匹配
+				matchedFile, err := h.hub.FindByPartialName(refFilename)
+				if err == nil {
+					content, cerr := h.hub.ReadFile(matchedFile)
+					if cerr != nil {
+						return fmt.Sprintf("❌ 读取文件 %s 失败: %v", matchedFile, cerr)
+					}
+					reply1 = content
+					filename = matchedFile
+					sourceAgentName = fmt.Sprintf("Hub[%s]", refFilename)
+					log.Printf("[hub/pipe] using hub partial match @%s -> file %s", refFilename, matchedFile)
+				} else {
+					return fmt.Sprintf("❌ 找不到匹配 %q 的文件\n\n💡 提示:\n- 使用 @<编号> 引用: @1、@-1\n- 使用 @<部分文件名>: @gemini、@gem\n- 查看文件: /hub list\n\n示例: /hub pipe claude @1 继续分析", refFilename)
+				}
 			}
 		}
 	}

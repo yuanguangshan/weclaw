@@ -278,6 +278,66 @@ func (h *Hub) Exists(filename string) bool {
 	return err == nil
 }
 
+// FindByPartialName finds a file by partial name matching.
+// Returns the newest matching file, or empty string if not found.
+// Supports partial matching: "gemini" matches "pipe_20260402_gemini.md"
+func (h *Hub) FindByPartialName(partial string) (string, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if partial == "" {
+		return "", fmt.Errorf("partial name is empty")
+	}
+
+	partial = strings.ToLower(strings.TrimSpace(partial))
+	// Remove .md suffix if user included it
+	partial = strings.TrimSuffix(partial, ".md")
+
+	entries, err := os.ReadDir(h.sharedDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("no files found")
+		}
+		return "", fmt.Errorf("read hub directory: %w", err)
+	}
+
+	// Find all matching files
+	type match struct {
+		name    string
+		modTime time.Time
+	}
+	var matches []match
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Remove .md suffix for comparison
+		baseName := strings.TrimSuffix(name, ".md")
+
+		// Partial match (case-insensitive)
+		if strings.Contains(strings.ToLower(baseName), partial) {
+			info, err := e.Info()
+			if err != nil {
+				continue
+			}
+			matches = append(matches, match{name: name, modTime: info.ModTime()})
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no files matching %q", partial)
+	}
+
+	// Return newest match
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].modTime.After(matches[j].modTime)
+	})
+
+	return matches[0].name, nil
+}
+
 // BuildPrompt creates a prompt with hub context injected.
 // If context is empty, returns the original message.
 func BuildPrompt(context, message string) string {

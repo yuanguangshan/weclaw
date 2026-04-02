@@ -2160,8 +2160,9 @@ func (h *Handler) enterShellMode(ctx context.Context, userID string) string {
 	}
 	h.shellModeStates.Store(userID, state)
 
+	prompt := shellPrompt(cwd)
 	return `--- 当前为命令行模式 (/q 退出) ---
-当前目录: ` + cwd + `
+当前目录: ` + cwd + ` (` + prompt + `)
 提示: 直接输入命令即可，无需 /sh 前缀
 支持 cd 切换目录，目录会持久化保存`
 }
@@ -2287,7 +2288,8 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 		if err := lsCmd.Run(); err == nil {
 			lsOutput := strings.TrimSpace(lsOut.String())
 			if lsOutput != "" {
-				return fmt.Sprintf("✅ 已切换到: %s\n\n%s", state.cwd, cleanANSI(lsOutput))
+				prompt := shellPrompt(state.cwd)
+				return fmt.Sprintf("✅ 已切换到: %s\n```%s\n%s\n```", state.cwd, prompt, cleanANSI(lsOutput))
 			}
 		}
 		return fmt.Sprintf("✅ 已切换到: %s", state.cwd)
@@ -2355,7 +2357,7 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 		return "✅ 命令执行成功，无输出"
 	}
 
-	return formatOutput(output)
+	return formatShellOutput(state.cwd, output)
 }
 
 // cleanANSI removes ANSI escape codes from output.
@@ -2378,4 +2380,20 @@ func formatOutput(output string) string {
 	// Remove trailing newlines before closing code block
 	output = strings.TrimRight(output, "\n")
 	return fmt.Sprintf("```\n%s\n```", output)
+}
+
+// shellPrompt generates a shell prompt string for the given directory.
+func shellPrompt(cwd string) string {
+	return fmt.Sprintf("%s:#", cwd)
+}
+
+// formatShellOutput wraps output with shell prompt prefix.
+func formatShellOutput(cwd string, output string) string {
+	if output == "" {
+		return ""
+	}
+	prompt := shellPrompt(cwd)
+	// Remove trailing newlines before closing code block
+	output = strings.TrimRight(output, "\n")
+	return fmt.Sprintf("```%s\n%s\n```", prompt, output)
 }

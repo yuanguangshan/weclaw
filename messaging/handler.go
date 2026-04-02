@@ -1,10 +1,12 @@
 package messaging
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -447,6 +450,14 @@ handleBuiltinCommand:
 			hubTrimmed = "/hub @" + parsedAgentNames[0] + " " + strings.TrimPrefix(effectiveTrimmed, "/hub")
 		}
 		reply := h.handleHub(ctx, client, msg, strings.TrimSpace(hubTrimmed), clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/podcast") {
+		reply := h.handlePodcast(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -1839,4 +1850,97 @@ func decryptAES128ECB(encrypted, key []byte) ([]byte, error) {
 	}
 
 	return decrypted, nil
+}
+
+const podcastAPIURL = "https://api.yuangs.cc/api/publish"
+
+// generatePodcastTitle extracts the first line, removes markdown markers, and truncates.
+func generatePodcastTitle(text string) string {
+	// Take first line
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return "[Read] 无标题"
+	}
+	firstLine := lines[0]
+
+	// Remove common markdown markers: #, *, >, -, `, [, ], etc.
+	re := regexp.MustCompile(`[#*>\-\[\]` + "`" + `]`)
+	cleaned := re.ReplaceAllString(firstLine, "")
+	cleaned = strings.TrimSpace(cleaned)
+	if cleaned == "" {
+		cleaned = "无标题"
+	}
+
+	// Add prefix and truncate to 50 chars
+	title := "[Read] " + cleaned
+	if len(title) > 50 {
+		title = title[:50]
+	}
+	return title
+}
+
+// sendToPodcast sends text to the remote podcast API.
+func (h *Handler) sendToPodcast(ctx context.Context, text string) error {
+	title := generatePodcastTitle(text)
+
+	payload := map[string]interface{}{
+		"title":      title,
+		"content":    text,
+		"content_md": text,
+		"targets":    []string{"nas"},
+		"transform":  "read",
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, podcastAPIURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-App-ID", "taio-quick-read")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// handlePodcast processes /podcast command.
+func (h *Handler) handlePodcast(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
+	parts := strings.Fields(trimmed)
+	var text string
+
+	if len(parts) == 1 {
+		// No argument: use last agent reply
+		lastReply, ok := h.lastReplies.Load(msg.FromUserID)
+		if !ok {
+			return "没有找到上一条回复。请先与 agent 对话，或使用 /podcast <消息> 指定内容。"
+		}
+		text = lastReply.(string)
+	} else {
+		// Has argument: join remaining parts
+		text = strings.Join(parts[1:], " ")
+	}
+
+	if strings.TrimSpace(text) == "" {
+		return "消息内容为空，无法生成播客。"
+	}
+
+	// Send to podcast API
+	if err := h.sendToPodcast(ctx, text); err != nil {
+		log.Printf("[handler] podcast error: %v", err)
+		return "❌ 播客生成失败，请稍后重试。"
+	}
+
+	return "✅ 已加入 NAS 直读队列，请稍后查看播客。"
 }

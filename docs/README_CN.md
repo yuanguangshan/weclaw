@@ -99,6 +99,80 @@ docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
 
 切换默认 Agent 会写入配置文件，重启后仍然生效。
 
+## Agent Hub · 跨 Agent 协作
+
+WeClaw 内置 Agent Hub 功能，支持多个 Agent 之间的上下文共享和链式协作。
+
+### 基本命令
+
+| 命令 | 说明 |
+| ---- | ---- |
+| `/hub` | 列出所有共享文件（显示编号） |
+| `/hub {消息}` | 注入所有共享文件后发给默认 Agent |
+| `/hub {文件} {消息}` | 注入指定文件后发给 Agent |
+| `/hub cat {编号}` | 查看指定编号的文件内容 |
+| `/hub ls /clear` | 列出 / 清空共享文件 |
+
+### Pipe 链式协作
+
+**Pipe 命令**让多个 Agent 协作完成复杂任务：
+
+```
+/hub pipe <目标agent> <消息>           # 默认 Agent → 目标 Agent
+/hub pipe <目标agent> @1 <消息>        # 引用 Hub 编号 1 的文件
+/hub pipe <目标agent> @-1 <消息>       # 引用最新文件
+/hub pipe <目标agent> @file.md <消息>  # 引用指定文件名
+```
+
+**示例：**
+
+```bash
+# 示例 1：两步分析
+/hub pipe gemini 量子计算的技术原理
+# 结果显示: 💾 源文件: [@1] pipe_xxx_nanobot.md
+#          💾 结果: [@2] pipe_xxx_gemini_final.md
+#          💡 继续分析: /hub pipe <agent> @2 <消息>
+
+/hub pipe claude @2 商业应用前景
+# claude 会收到 gemini 的分析结果，继续分析
+```
+
+```bash
+# 示例 2：多视角辩论
+/hub pipe gemini AI应该替代人类决策    # gemini 的观点
+/hub pipe claude @1 反驳以上观点        # claude 反驳
+/hub pipe deepseek @2 总结双方观点      # deepseek 总结
+```
+
+```bash
+# 示例 3：使用相对编号（@-1 = 最新文件）
+/hub pipe gemini 写一个博客大纲
+/hub pipe claude @-1 基于大纲扩写完整文章
+/hub pipe deepseek @-1 审查文章质量并优化
+```
+
+### 多 Agent 协作流程
+
+```
+用户 → /hub pipe gemini "主题"
+        ↓
+   默认 Agent (nanobot) 提供背景
+        ↓ (自动保存到 Hub)
+   gemini 分析 (收到 nanobot 的输出)
+        ↓ (自动保存到 Hub)
+   返回结果 + 文件编号提示
+        ↓
+用户 → /hub pipe claude @2 "继续分析"
+        ↓
+   claude 基于 gemini 的结果继续...
+```
+
+**优势：**
+- ✅ 自动保存中间结果到 Hub
+- ✅ 结果自动显示文件编号
+- ✅ 支持绝对编号 `@1`、相对编号 `@-1`、文件名 `@file.md`
+- ✅ 线程安全，支持多用户并发
+
 ## 富媒体消息
 
 WeClaw 支持收发图片、视频、文件和语音消息。

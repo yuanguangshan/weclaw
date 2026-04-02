@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -231,7 +232,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -458,6 +459,14 @@ handleBuiltinCommand:
 		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/podcast") {
 		reply := h.handlePodcast(ctx, client, msg, effectiveTrimmed, clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/sh ") || strings.HasPrefix(effectiveTrimmed, "/$ ") {
+		reply := h.handleShell(ctx, effectiveTrimmed)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -1462,6 +1471,11 @@ func buildHelpText() string {
   /cwd /path       切换工作目录
   /info /help      信息 / 帮助
 
+🖥️ 终端模拟
+  /sh <命令>       执行 shell 命令（如: /sh ls -la）
+  /$ <命令>        同上（简写，如: /$ pwd）
+  支持命令: ls, cat, pwd, find, grep, head, tail, wc 等
+
 📂 Agent（默认: nanobot）
   nanobot(nb,n,bot)  claude(c)  gemini(g)  deepseek(ds)
   pa(p)  ps  po  pg  zhipu(glm,z)
@@ -1948,4 +1962,66 @@ func (h *Handler) handlePodcast(ctx context.Context, client *ilink.Client, msg i
 	}
 
 	return "✅ 已加入 NAS 直读队列，请稍后查看播客。"
+}
+
+// handleShell processes /sh or /$ command to execute shell commands.
+func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
+	// Extract command: "/sh ls -la" -> "ls -la" or "/$ ls -la" -> "ls -la"
+	var cmdStr string
+	if strings.HasPrefix(trimmed, "/sh ") {
+		cmdStr = strings.TrimPrefix(trimmed, "/sh ")
+	} else {
+		cmdStr = strings.TrimPrefix(trimmed, "/$ ")
+	}
+	cmdStr = strings.TrimSpace(cmdStr)
+
+	if cmdStr == "" {
+		return "用法: /sh <命令> 或 /$ <命令>\n示例: /sh ls -la\n可用命令: ls, cat, pwd, find, grep, head, tail 等"
+	}
+
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Sprintf("无法获取当前目录: %v", err)
+	}
+
+	// Execute command
+	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	cmd.Dir = cwd
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		output := stderr.String()
+		if output == "" {
+			output = stdout.String()
+		}
+		// Truncate long output
+		if len(output) > 3000 {
+			output = output[:3000] + "\n... (输出已截断)"
+		}
+		return fmt.Sprintf("❌ 命令执行失败:\n%s", output)
+	}
+
+	output := stdout.String()
+	// Combine stderr if there's any stdout output
+	if stderr.String() != "" {
+		if output != "" {
+			output += "\n"
+		}
+		output += stderr.String()
+	}
+
+	// Truncate long output (WeChat message has length limit)
+	if len(output) > 4000 {
+		output = output[:4000] + "\n... (输出已截断)"
+	}
+
+	if output == "" {
+		return "✅ 命令执行成功，无输出"
+	}
+
+	return output
 }

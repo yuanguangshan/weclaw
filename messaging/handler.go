@@ -1031,12 +1031,24 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 
 	case strings.HasPrefix(rest, "pipe "):
 		// /hub pipe <target_agent> <message>
+		// /hub pipe <target_agent> @<编号> <message>  (使用 Hub 文件引用)
 		parts := strings.Fields(rest)
-		if len(parts) < 3 {
-			return "用法: /hub pipe <目标agent> <消息>\n示例: /hub pipe gemini 分析量子计算对密码学的影响"
+		if len(parts) < 2 {
+			return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析"
 		}
 		targetAgent := parts[1]
-		message := strings.Join(parts[2:], " ")
+		var message string
+		// 处理引用语法: @<编号>
+		if len(parts) >= 3 && strings.HasPrefix(parts[2], "@") {
+			// 引用模式: /hub pipe <agent> @<number> <message>
+			message = strings.Join(parts[2:], " ") // 包含 @<number> 和后续消息
+		} else {
+			// 普通模式: /hub pipe <agent> <message>
+			message = strings.Join(parts[2:], " ")
+			if message == "" {
+				return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析"
+			}
+		}
 		return h.handlePipe(ctx, client, msg, targetAgent, message, clientID)
 	}
 
@@ -1158,42 +1170,85 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 }
 
 // handlePipe 实现自动链式调用: 先将消息发送给默认 agent，然后将回复保存并发送给目标 agent
+// 支持引用语法：/hub pipe <agent> @<编号> <消息> - 直接使用 Hub 中编号对应的文件作为源内容
 func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, targetAgent, message, clientID string) string {
 	log.Printf("[hub/pipe] starting pipe: target=%s, message=%q", targetAgent, truncate(message, 50))
 
-	// 1. 获取默认 agent（作为 source）
-	sourceAgent := h.getDefaultAgent()
-	if sourceAgent == nil {
-		return "❌ 没有可用的默认 agent，请先设置默认 agent（如 /claude）"
-	}
-
-	// 使用配置名称而不是 Info().Name（后者可能返回进程路径）
-	h.mu.RLock()
-	sourceAgentName := h.defaultName
-	h.mu.RUnlock()
-
-	// 2. 发送消息给 source agent，得到第一轮回复
-	log.Printf("[hub/pipe] step1: sending to default agent (%s)", sourceAgentName)
-	reply1, err := h.chatWithAgent(ctx, sourceAgent, msg.FromUserID, message, client, msg.ContextToken)
-	if err != nil {
-		return fmt.Sprintf("❌ 第一步（默认 agent %s）失败: %v", sourceAgentName, err)
-	}
-
-	// 3. 自动保存第一轮回复到 Hub
 	timestamp := time.Now().Format("20060102-150405")
-	// 使用简洁的文件名：pipe_<timestamp>_<agent>.md
-	shortAgentName := sourceAgentName
-	if idx := strings.LastIndex(sourceAgentName, "/"); idx >= 0 {
-		shortAgentName = sourceAgentName[idx+1:]
+
+	var reply1 string
+	var filename string
+	var sourceAgentName string
+
+	// 检测是否使用 @<编号> 引用语法
+	trimmedMsg := strings.TrimSpace(message)
+	if strings.HasPrefix(trimmedMsg, "@") {
+		// 解析引用语法: @1 或 @2 等
+		refStr := trimmedMsg[1:] // 去掉 @
+		// 提取数字部分
+		var refNum int
+		n, err := fmt.Sscanf(refStr, "%d", &refNum)
+		if n == 1 && err == nil && refNum >= 1 {
+			// 读取 Hub 文件列表
+			files, ferr := h.hub.ListWithInfo()
+			if ferr != nil {
+				return fmt.Sprintf("❌ 读取 Hub 失败: %v", ferr)
+			}
+			if refNum > len(files) {
+				return fmt.Sprintf("❌ 编号超出范围，Hub 只有 %d 个文件", len(files))
+			}
+			// 获取文件名
+			targetFile := files[refNum-1].Name
+			content, cerr := h.hub.ReadFile(targetFile)
+			if cerr != nil {
+				return fmt.Sprintf("❌ 读取文件 %s 失败: %v", targetFile, cerr)
+			}
+			// 使用引用文件的内容作为源内容
+			reply1 = content
+			filename = targetFile
+			sourceAgentName = fmt.Sprintf("Hub[@%d]", refNum)
+			log.Printf("[hub/pipe] using hub reference @%d -> file %s", refNum, targetFile)
+		} else {
+			return fmt.Sprintf("❌ 无效的引用语法，正确格式: /hub pipe <agent> @<编号> <消息>\n示例: /hub pipe claude @1 继续分析")
+		}
 	}
-	filename := fmt.Sprintf("pipe_%s_%s.md", timestamp, shortAgentName)
-	savePath, err := h.hub.Save(filename, reply1, sourceAgentName)
-	if err != nil {
-		log.Printf("[hub/pipe] save failed: %v", err)
-		// 即使保存失败，仍继续执行第二步（降级）
-		filename = ""
-	} else {
-		log.Printf("[hub/pipe] saved step1 reply to %s", savePath)
+
+	// 如果没有使用引用语法，则走正常的 pipe 流程
+	if reply1 == "" {
+		// 1. 获取默认 agent（作为 source）
+		sourceAgent := h.getDefaultAgent()
+		if sourceAgent == nil {
+			return "❌ 没有可用的默认 agent，请先设置默认 agent（如 /claude）"
+		}
+
+		// 使用配置名称而不是 Info().Name（后者可能返回进程路径）
+		h.mu.RLock()
+		sourceAgentName = h.defaultName
+		h.mu.RUnlock()
+
+		// 2. 发送消息给 source agent，得到第一轮回复
+		log.Printf("[hub/pipe] step1: sending to default agent (%s)", sourceAgentName)
+		var err error
+		reply1, err = h.chatWithAgent(ctx, sourceAgent, msg.FromUserID, message, client, msg.ContextToken)
+		if err != nil {
+			return fmt.Sprintf("❌ 第一步（默认 agent %s）失败: %v", sourceAgentName, err)
+		}
+
+		// 3. 自动保存第一轮回复到 Hub
+		// 使用简洁的文件名：pipe_<timestamp>_<agent>.md
+		shortAgentName := sourceAgentName
+		if idx := strings.LastIndex(sourceAgentName, "/"); idx >= 0 {
+			shortAgentName = sourceAgentName[idx+1:]
+		}
+		filename = fmt.Sprintf("pipe_%s_%s.md", timestamp, shortAgentName)
+		savePath, err := h.hub.Save(filename, reply1, sourceAgentName)
+		if err != nil {
+			log.Printf("[hub/pipe] save failed: %v", err)
+			// 即使保存失败，仍继续执行第二步（降级）
+			filename = ""
+		} else {
+			log.Printf("[hub/pipe] saved step1 reply to %s", savePath)
+		}
 	}
 
 	// 4. 获取目标 agent

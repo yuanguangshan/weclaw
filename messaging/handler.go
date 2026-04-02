@@ -1137,7 +1137,11 @@ func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilin
 	if sourceAgent == nil {
 		return "❌ 没有可用的默认 agent，请先设置默认 agent（如 /claude）"
 	}
-	sourceAgentName := sourceAgent.Info().Name
+
+	// 使用配置名称而不是 Info().Name（后者可能返回进程路径）
+	h.mu.RLock()
+	sourceAgentName := h.defaultName
+	h.mu.RUnlock()
 
 	// 2. 发送消息给 source agent，得到第一轮回复
 	log.Printf("[hub/pipe] step1: sending to default agent (%s)", sourceAgentName)
@@ -1148,7 +1152,12 @@ func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilin
 
 	// 3. 自动保存第一轮回复到 Hub
 	timestamp := time.Now().Format("20060102-150405")
-	filename := fmt.Sprintf("pipe_%s_%s.md", timestamp, sourceAgentName)
+	// 使用简洁的文件名：pipe_<timestamp>_<agent>.md
+	shortAgentName := sourceAgentName
+	if idx := strings.LastIndex(sourceAgentName, "/"); idx >= 0 {
+		shortAgentName = sourceAgentName[idx+1:]
+	}
+	filename := fmt.Sprintf("pipe_%s_%s.md", timestamp, shortAgentName)
 	savePath, err := h.hub.Save(filename, reply1, sourceAgentName)
 	if err != nil {
 		log.Printf("[hub/pipe] save failed: %v", err)

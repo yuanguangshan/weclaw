@@ -56,6 +56,7 @@ type Handler struct {
 	seenMsgs      sync.Map   // map[int64]time.Time — dedup by message_id
 	progressCtx   *progressContext // current request context for progress notifications
 	lastReplies   sync.Map   // map[userID]string — last agent reply per user (for /save without message)
+	shellModeStates sync.Map // map[userID]*shellModeState — per-user shell mode state
 }
 
 // progressContext holds context for sending progress notifications.
@@ -66,6 +67,12 @@ type progressContext struct {
 	cancel   context.CancelFunc
 	lastTime time.Time // last progress notification time
 	mu       sync.Mutex
+}
+
+// shellModeState holds per-user shell mode state.
+type shellModeState struct {
+	enabled bool   // whether shell mode is active
+	cwd     string // current working directory
 }
 
 // NewHandler creates a new message handler.
@@ -232,7 +239,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -367,6 +374,31 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 	// Generate a clientID for this reply (used to correlate typing → finish)
 	clientID := NewClientID()
 
+	// Check if user is in shell mode
+	if state, ok := h.shellModeStates.Load(msg.FromUserID); ok && state != nil {
+		sm := state.(*shellModeState)
+		if sm.enabled {
+			trimmed := strings.TrimSpace(text)
+			// Exit shell mode
+			if trimmed == "/q" {
+				sm.enabled = false
+				reply := "已退出命令行模式"
+				if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+					log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+				}
+				return
+			}
+			// Execute command in shell mode
+			reply := h.handleShellWithState(ctx, sm, trimmed)
+			if reply != "" {
+				if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+					log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+				}
+			}
+			return
+		}
+	}
+
 	// Intercept URLs: save to Linkhoard directly without AI agent
 	trimmed := strings.TrimSpace(text)
 	if h.saveDir != "" && IsURL(trimmed) {
@@ -465,7 +497,15 @@ handleBuiltinCommand:
 			}
 		}
 		return
+	} else if effectiveTrimmed == "/sh" || effectiveTrimmed == "/$" {
+		// Enter shell mode
+		reply := h.enterShellMode(ctx, msg.FromUserID)
+		if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+			log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+		}
+		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/sh ") || strings.HasPrefix(effectiveTrimmed, "/$ ") {
+		// Execute single command without entering shell mode
 		reply := h.handleShell(ctx, effectiveTrimmed)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
@@ -1472,9 +1512,9 @@ func buildHelpText() string {
   /info /help      信息 / 帮助
 
 🖥️ 终端模拟
-  /sh <命令>       执行 shell 命令（如: /sh ls -la）
-  /$ <命令>        同上（简写，如: /$ pwd）
-  支持命令: ls, cat, pwd, find, grep, head, tail, wc 等
+  /sh              进入命令行模式（支持持久化目录、免前缀）
+  /sh <命令>       执行单次命令（不进入模式）
+  命令行模式下: cd /q 退出/切换目录，ls cat pwd 等
 
 📂 Agent（默认: nanobot）
   nanobot(nb,n,bot)  claude(c)  gemini(g)  deepseek(ds)
@@ -1988,6 +2028,108 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 	// Execute command
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	cmd.Dir = cwd
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		output := stderr.String()
+		if output == "" {
+			output = stdout.String()
+		}
+		// Truncate long output
+		if len(output) > 3000 {
+			output = output[:3000] + "\n... (输出已截断)"
+		}
+		return fmt.Sprintf("❌ 命令执行失败:\n%s", output)
+	}
+
+	output := stdout.String()
+	// Combine stderr if there's any stdout output
+	if stderr.String() != "" {
+		if output != "" {
+			output += "\n"
+		}
+		output += stderr.String()
+	}
+
+	// Truncate long output (WeChat message has length limit)
+	if len(output) > 4000 {
+		output = output[:4000] + "\n... (输出已截断)"
+	}
+
+	if output == "" {
+		return "✅ 命令执行成功，无输出"
+	}
+
+	return output
+}
+
+// enterShellMode enters shell mode for the user.
+func (h *Handler) enterShellMode(ctx context.Context, userID string) string {
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Sprintf("无法获取当前目录: %v", err)
+	}
+
+	// Create or update shell mode state
+	state := &shellModeState{
+		enabled: true,
+		cwd:     cwd,
+	}
+	h.shellModeStates.Store(userID, state)
+
+	return `--- 当前为命令行模式 (/q 退出) ---
+当前目录: ` + cwd + `
+提示: 直接输入命令即可，无需 /sh 前缀
+支持 cd 切换目录，目录会持久化保存`
+}
+
+// handleShellWithState executes a command in shell mode with persistent state.
+func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeState, cmdStr string) string {
+	cmdStr = strings.TrimSpace(cmdStr)
+	if cmdStr == "" {
+		return ""
+	}
+
+	// Handle cd command specially to update state
+	if strings.HasPrefix(cmdStr, "cd ") {
+		newDir := strings.TrimSpace(strings.TrimPrefix(cmdStr, "cd "))
+		if newDir == "" || newDir == "~" {
+			// Go to home directory
+			home, _ := os.UserHomeDir()
+			if home != "" {
+				state.cwd = home
+			}
+		} else if filepath.IsAbs(newDir) {
+			// Absolute path
+			if info, err := os.Stat(newDir); err == nil && info.IsDir() {
+				state.cwd = newDir
+			} else {
+				return fmt.Sprintf("❌ 目录不存在: %s", newDir)
+			}
+		} else {
+			// Relative path - resolve from current cwd
+			joined := filepath.Join(state.cwd, newDir)
+			if info, err := os.Stat(joined); err == nil && info.IsDir() {
+				state.cwd = joined
+			} else {
+				return fmt.Sprintf("❌ 目录不存在: %s", newDir)
+			}
+		}
+		return fmt.Sprintf("✅ 已切换到: %s", state.cwd)
+	}
+
+	// Handle pwd command
+	if cmdStr == "pwd" {
+		return state.cwd
+	}
+
+	// Execute command
+	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	cmd.Dir = state.cwd
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

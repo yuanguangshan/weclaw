@@ -1716,6 +1716,17 @@ func (h *Handler) extractAllMedia(ctx context.Context, client *ilink.Client, msg
 					Type:     "file",
 					FileName: item.FileItem.FileName,
 				}
+				// Debug: print full FileItem JSON
+				if fileJSON, err := json.Marshal(item.FileItem); err == nil {
+					log.Printf("[handler] FileItem JSON: %s", string(fileJSON))
+				}
+				if item.FileItem.Media != nil {
+					log.Printf("[handler] file MediaInfo: EncryptQueryParam=%q AESKey=%q EncryptType=%d Len=%s",
+						item.FileItem.Media.EncryptQueryParam[:min(40, len(item.FileItem.Media.EncryptQueryParam))]+"...",
+						item.FileItem.Media.AESKey,
+						item.FileItem.Media.EncryptType,
+						item.FileItem.Len)
+				}
 				if item.FileItem.Media != nil && h.saveDir != "" {
 					// CDN file - download and decrypt
 					ext := filepath.Ext(item.FileItem.FileName)
@@ -1844,6 +1855,8 @@ func downloadCDNMedia(ctx context.Context, client *ilink.Client, media *ilink.Me
 	log.Printf("[handler] downloaded %d bytes of data", len(encryptedData))
 
 	var fileData []byte
+	log.Printf("[handler] file MediaInfo: EncryptQueryParam=%q AESKey=%q EncryptType=%d Len=%d",
+		media.EncryptQueryParam[:20], media.AESKey, media.EncryptType, len(encryptedData))
 	if media.AESKey != "" {
 		// Decrypt using AES-128-ECB
 		// AES key format: base64 -> hex string -> raw bytes
@@ -1862,9 +1875,13 @@ func downloadCDNMedia(ctx context.Context, client *ilink.Client, media *ilink.Me
 		}
 		log.Printf("[handler] decrypted %d bytes", len(fileData))
 	} else {
-		// No encryption key — data is plaintext
+		// No encryption key or EncryptType != 1 — data is plaintext
 		fileData = encryptedData
-		log.Printf("[handler] no AES key, using raw data (no decryption)")
+		if media.AESKey == "" {
+			log.Printf("[handler] no AES key, using raw data (no decryption)")
+		} else {
+			log.Printf("[handler] EncryptType=%d (not AES-128-ECB), using raw data", media.EncryptType)
+		}
 	}
 
 	// Save to local file

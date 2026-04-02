@@ -2019,6 +2019,34 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 		return "用法: /sh <命令> 或 /$ <命令>\n示例: /sh ls -la\n可用命令: ls, cat, pwd, find, grep, head, tail 等"
 	}
 
+	// Command whitelist for security
+	allowedCommands := map[string]bool{
+		"ls": true, "pwd": true, "cat": true, "head": true, "tail": true,
+		"grep": true, "find": true, "wc": true, "du": true, "df": true,
+		"file": true, "stat": true, "date": true, "echo": true, "basename": true,
+		"dirname": true, "realpath": true, "readlink": true, "which": true,
+		"tree": true, "nl": true, "sort": true, "uniq": true, "cut": true,
+		"awk": true, "sed": true, "tr": true, "xargs": true,
+	}
+
+	// Extract the base command
+	parts := strings.Fields(cmdStr)
+	if len(parts) > 0 {
+		baseCmd := parts[0]
+		if !allowedCommands[baseCmd] {
+			return fmt.Sprintf("❌ 命令不在白名单中: %s\n允许的命令: ls pwd cd cat head tail grep find wc du df file stat date echo basename dirname realpath readlink which tree nl sort uniq cut awk sed tr xargs", baseCmd)
+		}
+	}
+
+	// Auto-add -C flag to ls for multi-column output if not already specified
+	if strings.HasPrefix(cmdStr, "ls") && !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
+		if cmdStr == "ls" {
+			cmdStr = "ls -C"
+		} else {
+			cmdStr = "ls -C " + strings.TrimPrefix(cmdStr, "ls")
+		}
+	}
+
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -2092,6 +2120,33 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 	cmdStr = strings.TrimSpace(cmdStr)
 	if cmdStr == "" {
 		return ""
+	}
+
+	// Command whitelist for security
+	allowedCommands := map[string]bool{
+		"ls": true, "pwd": true, "cd": true, "cat": true, "head": true, "tail": true,
+		"grep": true, "find": true, "wc": true, "du": true, "df": true,
+		"file": true, "stat": true, "date": true, "echo": true, "basename": true,
+		"dirname": true, "realpath": true, "readlink": true, "which": true,
+		"tree": true, "nl": true, "sort": true, "uniq": true, "cut": true,
+		"awk": true, "sed": true, "tr": true, "xargs": true,
+	}
+
+	// Extract the base command
+	parts := strings.Fields(cmdStr)
+	if len(parts) == 0 {
+		return ""
+	}
+	baseCmd := parts[0]
+
+	// Check if command is allowed
+	if !allowedCommands[baseCmd] {
+		return fmt.Sprintf("❌ 命令不在白名单中: %s\n允许的命令: ls pwd cd cat head tail grep find wc du df file stat date echo basename dirname realpath readlink which tree nl sort uniq cut awk sed tr xargs", baseCmd)
+	}
+
+	// Auto-add -C flag to ls for multi-column output if not already specified
+	if baseCmd == "ls" && !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
+		cmdStr = "ls -C " + strings.TrimPrefix(cmdStr, "ls")
 	}
 
 	// Handle cd command specially to update state

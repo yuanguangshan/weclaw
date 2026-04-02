@@ -1031,22 +1031,24 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 
 	case strings.HasPrefix(rest, "pipe "):
 		// /hub pipe <target_agent> <message>
-		// /hub pipe <target_agent> @<编号> <message>  (使用 Hub 文件引用)
+		// /hub pipe <target_agent> @<编号> <message>  (使用 Hub 文件编号引用)
+		// /hub pipe <target_agent> @-1 <message>    (使用最新文件)
+		// /hub pipe <target_agent> @<文件名> <message>  (直接引用文件名)
 		parts := strings.Fields(rest)
 		if len(parts) < 2 {
-			return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析"
+			return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n       /hub pipe <目标agent> @-1 <消息>\n       /hub pipe <目标agent> @<文件名> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @pipe_xxx.md 继续分析"
 		}
 		targetAgent := parts[1]
 		var message string
-		// 处理引用语法: @<编号>
+		// 处理引用语法: @<编号>、@-1、@<文件名>
 		if len(parts) >= 3 && strings.HasPrefix(parts[2], "@") {
-			// 引用模式: /hub pipe <agent> @<number> <message>
-			message = strings.Join(parts[2:], " ") // 包含 @<number> 和后续消息
+			// 引用模式: /hub pipe <agent> @<ref> <message>
+			message = strings.Join(parts[2:], " ") // 包含 @<ref> 和后续消息
 		} else {
 			// 普通模式: /hub pipe <agent> <message>
 			message = strings.Join(parts[2:], " ")
 			if message == "" {
-				return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析"
+				return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n       /hub pipe <目标agent> @-1 <消息>\n       /hub pipe <目标agent> @<文件名> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @pipe_xxx.md 继续分析"
 			}
 		}
 		return h.handlePipe(ctx, client, msg, targetAgent, message, clientID)
@@ -1170,7 +1172,10 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 }
 
 // handlePipe 实现自动链式调用: 先将消息发送给默认 agent，然后将回复保存并发送给目标 agent
-// 支持引用语法：/hub pipe <agent> @<编号> <消息> - 直接使用 Hub 中编号对应的文件作为源内容
+// 支持引用语法：
+//   /hub pipe <agent> @<编号> <消息> - 直接使用 Hub 中编号对应的文件作为源内容
+//   /hub pipe <agent> @-1 <消息> - 使用最新文件（-1=最新，-2=第二新）
+//   /hub pipe <agent> @<文件名> <消息> - 直接使用文件名引用
 func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, targetAgent, message, clientID string) string {
 	log.Printf("[hub/pipe] starting pipe: target=%s, message=%q", targetAgent, truncate(message, 50))
 
@@ -1180,36 +1185,73 @@ func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilin
 	var filename string
 	var sourceAgentName string
 
-	// 检测是否使用 @<编号> 引用语法
+	// 检测是否使用 @ 引用语法
 	trimmedMsg := strings.TrimSpace(message)
 	if strings.HasPrefix(trimmedMsg, "@") {
-		// 解析引用语法: @1 或 @2 等
+		// 解析引用语法
 		refStr := trimmedMsg[1:] // 去掉 @
-		// 提取数字部分
+
+		// 尝试解析为相对编号 (@-1, @-2) 或绝对编号 (@1, @2)
 		var refNum int
 		n, err := fmt.Sscanf(refStr, "%d", &refNum)
-		if n == 1 && err == nil && refNum >= 1 {
-			// 读取 Hub 文件列表
+
+		if n == 1 && err == nil {
+			// 数字引用模式
 			files, ferr := h.hub.ListWithInfo()
 			if ferr != nil {
 				return fmt.Sprintf("❌ 读取 Hub 失败: %v", ferr)
 			}
-			if refNum > len(files) {
-				return fmt.Sprintf("❌ 编号超出范围，Hub 只有 %d 个文件", len(files))
+			if len(files) == 0 {
+				return "❌ Hub 是空的，没有可引用的文件"
 			}
-			// 获取文件名
-			targetFile := files[refNum-1].Name
+
+			var targetFile string
+			if refNum < 0 {
+				// 相对编号: @-1=最新, @-2=第二新
+				idx := -refNum - 1
+				if idx >= len(files) {
+					return fmt.Sprintf("❌ 相对编号超出范围，Hub 只有 %d 个文件", len(files))
+				}
+				targetFile = files[idx].Name
+				sourceAgentName = fmt.Sprintf("Hub[@%d=最新]", refNum)
+			} else {
+				// 绝对编号: @1=最新, @2=第二新
+				if refNum > len(files) {
+					return fmt.Sprintf("❌ 编号超出范围，Hub 只有 %d 个文件", len(files))
+				}
+				targetFile = files[refNum-1].Name
+				sourceAgentName = fmt.Sprintf("Hub[@%d]", refNum)
+			}
+
 			content, cerr := h.hub.ReadFile(targetFile)
 			if cerr != nil {
 				return fmt.Sprintf("❌ 读取文件 %s 失败: %v", targetFile, cerr)
 			}
-			// 使用引用文件的内容作为源内容
 			reply1 = content
 			filename = targetFile
-			sourceAgentName = fmt.Sprintf("Hub[@%d]", refNum)
-			log.Printf("[hub/pipe] using hub reference @%d -> file %s", refNum, targetFile)
+			log.Printf("[hub/pipe] using hub reference @%s -> file %s", refStr, targetFile)
 		} else {
-			return fmt.Sprintf("❌ 无效的引用语法，正确格式: /hub pipe <agent> @<编号> <消息>\n示例: /hub pipe claude @1 继续分析")
+			// 尝试作为文件名引用 @filename.md
+			refFilename := refStr
+			// 如果引用后没有空格或消息，整个 trimmedMsg 就是 @filename
+			// 否则需要提取文件名部分（遇到空格为止）
+			if spaceIdx := strings.Index(refStr, " "); spaceIdx > 0 {
+				refFilename = refStr[:spaceIdx]
+			}
+
+			// 检查文件是否存在
+			if h.hub.Exists(refFilename) {
+				content, cerr := h.hub.ReadFile(refFilename)
+				if cerr != nil {
+					return fmt.Sprintf("❌ 读取文件 %s 失败: %v", refFilename, cerr)
+				}
+				reply1 = content
+				filename = refFilename
+				sourceAgentName = fmt.Sprintf("Hub[%s]", refFilename)
+				log.Printf("[hub/pipe] using hub file reference @%s", refFilename)
+			} else {
+				return fmt.Sprintf("❌ 无效的引用语法\n支持格式: @<编号>(如@1、@-1)、@<文件名>(如@pipe_xxx.md)\n示例: /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @pipe_xxx.md 继续分析")
+			}
 		}
 	}
 
@@ -1287,15 +1329,46 @@ func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilin
 
 	// 7. 自动保存最终结果
 	finalFilename := fmt.Sprintf("pipe_%s_%s_final.md", timestamp, targetAgent)
+	finalSaved := false
 	if _, err := h.hub.Save(finalFilename, reply2, targetAgent); err != nil {
 		log.Printf("[hub/pipe] failed to save final reply: %v", err)
+	} else {
+		finalSaved = true
 	}
 
-	// 8. 返回最终回复（附加保存路径信息）
+	// 8. 返回最终回复（附加保存路径信息和文件编号）
 	result := reply2
-	if filename != "" {
-		result += fmt.Sprintf("\n\n📁 Pipe 流程: %s → %s\n💾 已保存: %s, %s",
-			sourceAgentName, targetAgent, filename, finalFilename)
+	if filename != "" || finalSaved {
+		// 获取当前 Hub 文件列表以显示编号
+		files, _ := h.hub.ListWithInfo()
+
+		// 查找源文件和目标文件的编号
+		var sourceNum, finalNum int
+		for i, f := range files {
+			if f.Name == filename {
+				sourceNum = i + 1
+			}
+			if f.Name == finalFilename {
+				finalNum = i + 1
+			}
+		}
+
+		var fileInfo strings.Builder
+		fileInfo.WriteString(fmt.Sprintf("\n\n📁 Pipe 流程: %s → %s", sourceAgentName, targetAgent))
+
+		if filename != "" && sourceNum > 0 {
+			fileInfo.WriteString(fmt.Sprintf("\n💾 源文件: [@%d] %s", sourceNum, filename))
+		}
+		if finalSaved && finalNum > 0 {
+			fileInfo.WriteString(fmt.Sprintf("\n💾 结果: [@%d] %s", finalNum, finalFilename))
+		}
+
+		// 提示用户如何继续
+		if finalNum > 0 {
+			fileInfo.WriteString(fmt.Sprintf("\n\n💡 继续分析: /hub pipe <agent> @%d <消息>", finalNum))
+		}
+
+		result += fileInfo.String()
 	}
 	return result
 }

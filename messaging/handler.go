@@ -2085,6 +2085,22 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 		return fmt.Sprintf("无法获取当前目录: %v", err)
 	}
 
+	// === Large file protection for cat command ===
+	if len(parts) >= 1 && parts[0] == "cat" && len(parts) >= 2 {
+		filePath := parts[1]
+		if !filepath.IsAbs(filePath) {
+			filePath = filepath.Join(cwd, filePath)
+		}
+		if info, err := os.Stat(filePath); err == nil {
+			// Check file size (limit to 50KB)
+			const maxSize = 50 * 1024
+			if info.Size() > maxSize {
+				return fmt.Sprintf("⚠️ 文件过大 (%.1f MB)\n💡 建议使用:\n   tail -n 100 %s  # 查看末尾\n   head -n 100 %s  # 查看开头\n   grep \"关键词\" %s  # 搜索内容",
+					float64(info.Size())/(1024*1024), filepath.Base(filePath), filepath.Base(filePath), filepath.Base(filePath))
+			}
+		}
+	}
+
 	// Execute command
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	cmd.Dir = cwd
@@ -2280,6 +2296,22 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 	// === Handle pwd command ===
 	if cmdStr == "pwd" {
 		return state.cwd
+	}
+
+	// === Large file protection for cat command ===
+	if baseCmd == "cat" && len(parts) >= 2 {
+		filePath := parts[1]
+		if !filepath.IsAbs(filePath) {
+			filePath = filepath.Join(state.cwd, filePath)
+		}
+		if info, err := os.Stat(filePath); err == nil {
+			// Check file size (limit to 50KB)
+			const maxSize = 50 * 1024
+			if info.Size() > maxSize {
+				return fmt.Sprintf("⚠️ 文件过大 (%.1f MB)\n💡 建议使用:\n   tail -n 100 %s  # 查看末尾\n   head -n 100 %s  # 查看开头\n   grep \"关键词\" %s  # 搜索内容",
+					float64(info.Size())/(1024*1024), filepath.Base(filePath), filepath.Base(filePath), filepath.Base(filePath))
+			}
+		}
 	}
 
 	// === Execute command ===

@@ -73,6 +73,7 @@ type progressContext struct {
 type shellModeState struct {
 	enabled bool   // whether shell mode is active
 	cwd     string // current working directory
+	baseDir string // base directory for path sandboxing (empty = no restriction)
 }
 
 // NewHandler creates a new message handler.
@@ -2019,9 +2020,26 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 		return "用法: /sh <命令> 或 /$ <命令>\n示例: /sh ls -la\n可用命令: ls, cat, pwd, find, grep, head, tail 等"
 	}
 
-	// Command whitelist for security
+	// === Shortcut aliases ===
+	if cmdStr == "ll" {
+		cmdStr = "ls -lh"
+	} else if cmdStr == ".." {
+		cmdStr = "cd .."
+	} else if cmdStr == "..." {
+		cmdStr = "cd ../.."
+	}
+
+	// === Security: Check for dangerous operators ===
+	dangerousPatterns := []string{">", ">>", "<", "|", "&&", "||", ";", "`", "$("}
+	for _, pattern := range dangerousPatterns {
+		if strings.Contains(cmdStr, pattern) {
+			return fmt.Sprintf("❌ 出于安全考虑，不允许使用特殊字符: %s\n如需复杂操作，请在本地终端执行", pattern)
+		}
+	}
+
+	// === Command whitelist for security ===
 	allowedCommands := map[string]bool{
-		"ls": true, "pwd": true, "cat": true, "head": true, "tail": true,
+		"ls": true, "pwd": true, "cd": true, "cat": true, "head": true, "tail": true,
 		"grep": true, "find": true, "wc": true, "du": true, "df": true,
 		"file": true, "stat": true, "date": true, "echo": true, "basename": true,
 		"dirname": true, "realpath": true, "readlink": true, "which": true,
@@ -2034,16 +2052,20 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 	if len(parts) > 0 {
 		baseCmd := parts[0]
 		if !allowedCommands[baseCmd] {
-			return fmt.Sprintf("❌ 命令不在白名单中: %s\n允许的命令: ls pwd cd cat head tail grep find wc du df file stat date echo basename dirname realpath readlink which tree nl sort uniq cut awk sed tr xargs", baseCmd)
+			return fmt.Sprintf("❌ 命令不在白名单中: %s\n允许的命令: ls pwd cd cat head tail grep find wc du df file stat date echo basename dirname realpath readlink which tree nl sort uniq cut awk sed tr xargs\n快捷指令: ll(=ls -lh) ..(=cd ..) ...(=cd ../..)", baseCmd)
 		}
 	}
 
-	// Auto-add -C flag to ls for multi-column output if not already specified
-	if strings.HasPrefix(cmdStr, "ls") && !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
-		if cmdStr == "ls" {
-			cmdStr = "ls -C"
-		} else {
-			cmdStr = "ls -C " + strings.TrimPrefix(cmdStr, "ls")
+	// === Auto-add flags to ls for better output ===
+	if strings.HasPrefix(cmdStr, "ls") {
+		if !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
+			if cmdStr == "ls" {
+				cmdStr = "ls -C --group-directories-first"
+			} else {
+				cmdStr = "ls -C --group-directories-first " + strings.TrimPrefix(cmdStr, "ls")
+			}
+		} else if strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "--group-directories-first") {
+			cmdStr += " --group-directories-first"
 		}
 	}
 
@@ -2081,6 +2103,9 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 		}
 		output += stderr.String()
 	}
+
+	// Clean ANSI escape codes for WeChat
+	output = cleanANSI(output)
 
 	// Truncate long output (WeChat message has length limit)
 	if len(output) > 4000 {
@@ -2122,7 +2147,24 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 		return ""
 	}
 
-	// Command whitelist for security
+	// === Shortcut aliases ===
+	if cmdStr == "ll" {
+		cmdStr = "ls -lh"
+	} else if cmdStr == ".." {
+		cmdStr = "cd .."
+	} else if cmdStr == "..." {
+		cmdStr = "cd ../.."
+	}
+
+	// === Security: Check for dangerous operators ===
+	dangerousPatterns := []string{">", ">>", "<", "|", "&&", "||", ";", "`", "$("}
+	for _, pattern := range dangerousPatterns {
+		if strings.Contains(cmdStr, pattern) {
+			return fmt.Sprintf("❌ 出于安全考虑，不允许使用特殊字符: %s\n如需复杂操作，请在本地终端执行", pattern)
+		}
+	}
+
+	// === Command whitelist for security ===
 	allowedCommands := map[string]bool{
 		"ls": true, "pwd": true, "cd": true, "cat": true, "head": true, "tail": true,
 		"grep": true, "find": true, "wc": true, "du": true, "df": true,
@@ -2141,48 +2183,79 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 
 	// Check if command is allowed
 	if !allowedCommands[baseCmd] {
-		return fmt.Sprintf("❌ 命令不在白名单中: %s\n允许的命令: ls pwd cd cat head tail grep find wc du df file stat date echo basename dirname realpath readlink which tree nl sort uniq cut awk sed tr xargs", baseCmd)
+		return fmt.Sprintf("❌ 命令不在白名单中: %s\n允许的命令: ls pwd cd cat head tail grep find wc du df file stat date echo basename dirname realpath readlink which tree nl sort uniq cut awk sed tr xargs\n快捷指令: ll(=ls -lh) ..(=cd ..) ...(=cd ../..)", baseCmd)
 	}
 
-	// Auto-add -C flag to ls for multi-column output if not already specified
-	if baseCmd == "ls" && !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
-		cmdStr = "ls -C " + strings.TrimPrefix(cmdStr, "ls")
+	// === Auto-add flags to ls for better output ===
+	if baseCmd == "ls" {
+		if !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
+			cmdStr = "ls -C --group-directories-first" + strings.TrimPrefix(cmdStr, "ls")
+		} else if strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "--group-directories-first") {
+			cmdStr += " --group-directories-first"
+		}
 	}
 
-	// Handle cd command specially to update state
-	if strings.HasPrefix(cmdStr, "cd ") {
-		newDir := strings.TrimSpace(strings.TrimPrefix(cmdStr, "cd "))
+	// === Handle cd command specially to update state ===
+	if strings.HasPrefix(cmdStr, "cd ") || cmdStr == "cd" {
+		var newDir string
+		if cmdStr == "cd" {
+			newDir = "~"
+		} else {
+			newDir = strings.TrimSpace(strings.TrimPrefix(cmdStr, "cd "))
+		}
+
+		var targetPath string
 		if newDir == "" || newDir == "~" {
-			// Go to home directory
 			home, _ := os.UserHomeDir()
 			if home != "" {
-				state.cwd = home
+				targetPath = home
 			}
 		} else if filepath.IsAbs(newDir) {
-			// Absolute path
-			if info, err := os.Stat(newDir); err == nil && info.IsDir() {
-				state.cwd = newDir
-			} else {
-				return fmt.Sprintf("❌ 目录不存在: %s", newDir)
-			}
+			targetPath = newDir
 		} else {
-			// Relative path - resolve from current cwd
-			joined := filepath.Join(state.cwd, newDir)
-			if info, err := os.Stat(joined); err == nil && info.IsDir() {
-				state.cwd = joined
-			} else {
-				return fmt.Sprintf("❌ 目录不存在: %s", newDir)
+			targetPath = filepath.Join(state.cwd, newDir)
+		}
+
+		// Resolve to absolute path and check if it's a directory
+		absPath, err := filepath.Abs(targetPath)
+		if err != nil {
+			return fmt.Sprintf("❌ 路径解析失败: %v", err)
+		}
+
+		// Path sandboxing: check if within baseDir (if set)
+		if state.baseDir != "" {
+			relPath, err := filepath.Rel(state.baseDir, absPath)
+			if err != nil || strings.HasPrefix(relPath, "..") {
+				return fmt.Sprintf("❌ 路径超出允许范围: %s", newDir)
+			}
+		}
+
+		if info, err := os.Stat(absPath); err != nil || !info.IsDir() {
+			return fmt.Sprintf("❌ 目录不存在: %s", newDir)
+		}
+
+		state.cwd = absPath
+
+		// Auto ls after cd for better UX
+		lsCmd := exec.CommandContext(ctx, "ls", "-C", "--group-directories-first")
+		lsCmd.Dir = state.cwd
+		var lsOut bytes.Buffer
+		lsCmd.Stdout = &lsOut
+		if err := lsCmd.Run(); err == nil {
+			lsOutput := strings.TrimSpace(lsOut.String())
+			if lsOutput != "" {
+				return fmt.Sprintf("✅ 已切换到: %s\n\n%s", state.cwd, cleanANSI(lsOutput))
 			}
 		}
 		return fmt.Sprintf("✅ 已切换到: %s", state.cwd)
 	}
 
-	// Handle pwd command
+	// === Handle pwd command ===
 	if cmdStr == "pwd" {
 		return state.cwd
 	}
 
-	// Execute command
+	// === Execute command ===
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	cmd.Dir = state.cwd
 
@@ -2211,6 +2284,9 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 		output += stderr.String()
 	}
 
+	// Clean ANSI escape codes for WeChat
+	output = cleanANSI(output)
+
 	// Truncate long output (WeChat message has length limit)
 	if len(output) > 4000 {
 		output = output[:4000] + "\n... (输出已截断)"
@@ -2221,4 +2297,11 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 	}
 
 	return output
+}
+
+// cleanANSI removes ANSI escape codes from output.
+func cleanANSI(s string) string {
+	// ANSI escape sequence pattern: \x1b[...m
+	re := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	return re.ReplaceAllString(s, "")
 }

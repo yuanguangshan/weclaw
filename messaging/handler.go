@@ -979,7 +979,7 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 	// Sub-commands
 	switch {
 	case rest == "ls" || rest == "list":
-		files, err := h.hub.List()
+		files, err := h.hub.ListWithInfo()
 		if err != nil {
 			return fmt.Sprintf("读取 Hub 失败: %v", err)
 		}
@@ -987,11 +987,40 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 			return "Hub 是空的。"
 		}
 		var sb strings.Builder
-		sb.WriteString("📁 Hub 文件列表:\n")
-		for _, f := range files {
-			sb.WriteString(fmt.Sprintf("  • %s\n", f))
+		sb.WriteString("📁 Hub 文件列表 (最新优先):\n")
+		for i, f := range files {
+			// Format: [1] filename (时间)
+			timeStr := f.ModTime.Format("01-02 15:04")
+			sb.WriteString(fmt.Sprintf("  [%d] %s (%s)\n", i+1, f.Name, timeStr))
 		}
+		sb.WriteString("\n💡 使用 /hub cat <编号> 读取文件")
 		return sb.String()
+
+	case strings.HasPrefix(rest, "cat "):
+		// /hub cat <number>
+		parts := strings.Fields(rest)
+		if len(parts) != 2 {
+			return "用法: /hub cat <编号>\n示例: /hub cat 1"
+		}
+		var num int
+		_, err := fmt.Sscanf(parts[1], "%d", &num)
+		if err != nil || num < 1 {
+			return fmt.Sprintf("无效的编号: %q，请使用数字", parts[1])
+		}
+		files, err := h.hub.ListWithInfo()
+		if err != nil {
+			return fmt.Sprintf("读取 Hub 失败: %v", err)
+		}
+		if num > len(files) {
+			return fmt.Sprintf("编号超出范围，Hub 只有 %d 个文件", len(files))
+		}
+		// num is 1-indexed, array is 0-indexed
+		targetFile := files[num-1].Name
+		content, err := h.hub.ReadFile(targetFile)
+		if err != nil {
+			return fmt.Sprintf("读取文件失败: %v", err)
+		}
+		return fmt.Sprintf("📄 %s\n\n%s", targetFile, content)
 
 	case rest == "clear":
 		count, err := h.hub.Clear()

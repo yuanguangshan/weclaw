@@ -158,6 +158,42 @@ func (h *Hub) List() ([]string, error) {
 	return names, nil
 }
 
+// FileInfo holds filename and modification time.
+type FileInfo struct {
+	Name    string
+	ModTime time.Time
+}
+
+// ListWithInfo returns all files with their modification time, sorted by newest first.
+func (h *Hub) ListWithInfo() ([]FileInfo, error) {
+	entries, err := os.ReadDir(h.sharedDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("list hub directory: %w", err)
+	}
+
+	var files []FileInfo
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, FileInfo{Name: e.Name(), ModTime: info.ModTime()})
+	}
+
+	// Sort by modification time, newest first
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].ModTime.After(files[j].ModTime)
+	})
+
+	return files, nil
+}
+
 // Clear removes all files from the shared directory.
 func (h *Hub) Clear() (int, error) {
 	entries, err := os.ReadDir(h.sharedDir)

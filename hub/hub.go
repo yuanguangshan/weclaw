@@ -6,12 +6,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 // Hub manages shared context files for cross-agent collaboration.
 type Hub struct {
-	sharedDir string // directory for shared context files
+	mu        sync.RWMutex // protects all file operations
+	sharedDir string        // directory for shared context files
 }
 
 // New creates a new Hub with the given shared directory.
@@ -37,6 +39,9 @@ func (h *Hub) SharedDir() string {
 // Save writes content to a file in the shared directory with YAML frontmatter.
 // agentName identifies which agent produced the content.
 func (h *Hub) Save(filename, content, agentName string) (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	// Sanitize filename
 	filename = sanitizeFilename(filename)
 	if !strings.HasSuffix(filename, ".md") {
@@ -60,6 +65,9 @@ func (h *Hub) Save(filename, content, agentName string) (string, error) {
 
 // SaveRaw writes raw content to a file (no frontmatter) in the shared directory.
 func (h *Hub) SaveRaw(filename, content string) (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	filename = sanitizeFilename(filename)
 	filePath := filepath.Join(h.sharedDir, filename)
 
@@ -72,6 +80,9 @@ func (h *Hub) SaveRaw(filename, content string) (string, error) {
 
 // ReadFile reads a specific file from the shared directory.
 func (h *Hub) ReadFile(filename string) (string, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	filename = sanitizeFilename(filename)
 	filePath := filepath.Join(h.sharedDir, filename)
 
@@ -86,6 +97,9 @@ func (h *Hub) ReadFile(filename string) (string, error) {
 // ReadAll reads all files from the shared directory and returns their combined content.
 // Returns a formatted context string ready for injection into agent prompts.
 func (h *Hub) ReadAll() (string, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	entries, err := os.ReadDir(h.sharedDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -138,6 +152,9 @@ func (h *Hub) ReadAll() (string, error) {
 
 // List returns all filenames in the shared directory.
 func (h *Hub) List() ([]string, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	entries, err := os.ReadDir(h.sharedDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -166,6 +183,9 @@ type FileInfo struct {
 
 // ListWithInfo returns all files with their modification time, sorted by newest first.
 func (h *Hub) ListWithInfo() ([]FileInfo, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	entries, err := os.ReadDir(h.sharedDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -196,6 +216,9 @@ func (h *Hub) ListWithInfo() ([]FileInfo, error) {
 
 // Clear removes all files from the shared directory.
 func (h *Hub) Clear() (int, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	entries, err := os.ReadDir(h.sharedDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -222,6 +245,9 @@ func (h *Hub) Clear() (int, error) {
 // ReadSpecific reads specific files from the shared directory.
 // filenames is a list of filenames to read.
 func (h *Hub) ReadSpecific(filenames []string) (string, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	var sb strings.Builder
 	sb.WriteString("=== Agent Hub Shared Context ===\n\n")
 
@@ -244,6 +270,9 @@ func (h *Hub) ReadSpecific(filenames []string) (string, error) {
 
 // Exists checks if a file exists in the shared directory.
 func (h *Hub) Exists(filename string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	filename = sanitizeFilename(filename)
 	_, err := os.Stat(filepath.Join(h.sharedDir, filename))
 	return err == nil

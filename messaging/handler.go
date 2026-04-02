@@ -999,6 +999,16 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 			return fmt.Sprintf("清空 Hub 失败: %v", err)
 		}
 		return fmt.Sprintf("🗑️ 已清空 Hub (%d 个文件)", count)
+
+	case strings.HasPrefix(rest, "pipe "):
+		// /hub pipe <target_agent> <message>
+		parts := strings.Fields(rest)
+		if len(parts) < 3 {
+			return "用法: /hub pipe <目标agent> <消息>\n示例: /hub pipe gemini 分析量子计算对密码学的影响"
+		}
+		targetAgent := parts[1]
+		message := strings.Join(parts[2:], " ")
+		return h.handlePipe(ctx, client, msg, targetAgent, message, clientID)
 	}
 
 	// Parse: could be "/hub filename message" or "/hub message"
@@ -1116,6 +1126,85 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 	}
 
 	return reply
+}
+
+// handlePipe 实现自动链式调用: 先将消息发送给默认 agent，然后将回复保存并发送给目标 agent
+func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, targetAgent, message, clientID string) string {
+	log.Printf("[hub/pipe] starting pipe: target=%s, message=%q", targetAgent, truncate(message, 50))
+
+	// 1. 获取默认 agent（作为 source）
+	sourceAgent := h.getDefaultAgent()
+	if sourceAgent == nil {
+		return "❌ 没有可用的默认 agent，请先设置默认 agent（如 /claude）"
+	}
+	sourceAgentName := sourceAgent.Info().Name
+
+	// 2. 发送消息给 source agent，得到第一轮回复
+	log.Printf("[hub/pipe] step1: sending to default agent (%s)", sourceAgentName)
+	reply1, err := h.chatWithAgent(ctx, sourceAgent, msg.FromUserID, message, client, msg.ContextToken)
+	if err != nil {
+		return fmt.Sprintf("❌ 第一步（默认 agent %s）失败: %v", sourceAgentName, err)
+	}
+
+	// 3. 自动保存第一轮回复到 Hub
+	timestamp := time.Now().Format("20060102-150405")
+	filename := fmt.Sprintf("pipe_%s_%s.md", timestamp, sourceAgentName)
+	savePath, err := h.hub.Save(filename, reply1, sourceAgentName)
+	if err != nil {
+		log.Printf("[hub/pipe] save failed: %v", err)
+		// 即使保存失败，仍继续执行第二步（降级）
+		filename = ""
+	} else {
+		log.Printf("[hub/pipe] saved step1 reply to %s", savePath)
+	}
+
+	// 4. 获取目标 agent
+	targetAg, err := h.getAgent(ctx, targetAgent)
+	if err != nil {
+		return fmt.Sprintf("❌ 目标 agent %q 不可用: %v", targetAgent, err)
+	}
+
+	// 5. 构造第二步的 prompt：让目标 agent 基于刚保存的文件进行分析
+	var hubContext string
+	if filename != "" {
+		hubContext, err = h.hub.ReadSpecific([]string{filename})
+		if err != nil {
+			log.Printf("[hub/pipe] read saved file failed: %v", err)
+			hubContext = ""
+		}
+	}
+
+	if hubContext == "" {
+		// 若读取失败，降级为直接传递 reply1
+		hubContext = fmt.Sprintf("上一步的回复：\n%s", reply1)
+	}
+
+	secondPrompt := fmt.Sprintf(
+		"请基于以下内容，继续进行分析或给出你的观点：\n\n---\n%s\n---\n\n要求：直接输出分析结果，不要重复原文。",
+		hubContext,
+	)
+
+	// 6. 发送给目标 agent（使用独立 conversationID 避免污染）
+	convID := "hub:" + targetAgent + ":" + msg.FromUserID
+	log.Printf("[hub/pipe] step2: sending to target agent (%s)", targetAgent)
+	reply2, err := h.chatWithAgent(ctx, targetAg, convID, secondPrompt, client, msg.ContextToken)
+	if err != nil {
+		return fmt.Sprintf("❌ 第二步（目标 agent %s）失败: %v", targetAgent, err)
+	}
+
+	// 7. 自动保存最终结果
+	finalFilename := fmt.Sprintf("pipe_%s_%s_final.md", timestamp, targetAgent)
+	if _, err := h.hub.Save(finalFilename, reply2, targetAgent); err != nil {
+		log.Printf("[hub/pipe] failed to save final reply: %v", err)
+	}
+
+	// 8. 返回最终回复（附加保存路径信息）
+	result := reply2
+	if filename != "" {
+		result += fmt.Sprintf("\n\n📁 Pipe 流程: %s → %s\n💾 已保存: %s, %s",
+			sourceAgentName, targetAgent, filename, finalFilename)
+	}
+	return result
 }
 
 // buildStatus returns a short status string showing the current default agent.

@@ -1871,10 +1871,11 @@ func generatePodcastTitle(text string) string {
 		cleaned = "无标题"
 	}
 
-	// Add prefix and truncate to 50 chars
+	// Add prefix and truncate to 50 chars (using rune to safely handle Chinese)
 	title := "[Read] " + cleaned
-	if len(title) > 50 {
-		title = title[:50]
+	runes := []rune(title)
+	if len(runes) > 50 {
+		title = string(runes[:50])
 	}
 	return title
 }
@@ -1908,6 +1909,10 @@ func (h *Handler) sendToPodcast(ctx context.Context, text string) error {
 		return fmt.Errorf("http request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Read and log response body for debugging
+	respBody, _ := io.ReadAll(resp.Body)
+	log.Printf("[podcast] API response status=%d, body=%s", resp.StatusCode, string(respBody))
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)

@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -2060,11 +2061,20 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 	if strings.HasPrefix(cmdStr, "ls") {
 		if !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
 			if cmdStr == "ls" {
-				cmdStr = "ls -C --group-directories-first"
+				cmdStr = "ls -C"
+				if isLinux() {
+					cmdStr += " --group-directories-first"
+				}
 			} else {
-				cmdStr = "ls -C --group-directories-first " + strings.TrimPrefix(cmdStr, "ls")
+				// Save the original args before modifying cmdStr
+				rest := strings.TrimPrefix(cmdStr, "ls")
+				cmdStr = "ls -C"
+				if isLinux() {
+					cmdStr += " --group-directories-first"
+				}
+				cmdStr += rest
 			}
-		} else if strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "--group-directories-first") {
+		} else if strings.Contains(cmdStr, "-C") && isLinux() && !strings.Contains(cmdStr, "--group-directories-first") {
 			cmdStr += " --group-directories-first"
 		}
 	}
@@ -2116,7 +2126,7 @@ func (h *Handler) handleShell(ctx context.Context, trimmed string) string {
 		return "✅ 命令执行成功，无输出"
 	}
 
-	return output
+	return formatOutput(output)
 }
 
 // enterShellMode enters shell mode for the user.
@@ -2189,8 +2199,12 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 	// === Auto-add flags to ls for better output ===
 	if baseCmd == "ls" {
 		if !strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "-l") && !strings.Contains(cmdStr, "-1") {
-			cmdStr = "ls -C --group-directories-first" + strings.TrimPrefix(cmdStr, "ls")
-		} else if strings.Contains(cmdStr, "-C") && !strings.Contains(cmdStr, "--group-directories-first") {
+			cmdStr = "ls -C"
+			if isLinux() {
+				cmdStr += " --group-directories-first"
+			}
+			cmdStr += strings.TrimPrefix(cmdStr, "ls")
+		} else if strings.Contains(cmdStr, "-C") && isLinux() && !strings.Contains(cmdStr, "--group-directories-first") {
 			cmdStr += " --group-directories-first"
 		}
 	}
@@ -2216,28 +2230,41 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 			targetPath = filepath.Join(state.cwd, newDir)
 		}
 
-		// Resolve to absolute path and check if it's a directory
+		// Resolve to absolute path
 		absPath, err := filepath.Abs(targetPath)
 		if err != nil {
 			return fmt.Sprintf("❌ 路径解析失败: %v", err)
 		}
 
-		// Path sandboxing: check if within baseDir (if set)
+		// Resolve symlinks to get real path (security: prevent symlink escape)
+		realPath, err := filepath.EvalSymlinks(absPath)
+		if err != nil {
+			return fmt.Sprintf("❌ 路径解析失败: %v", err)
+		}
+
+		// Path sandboxing: check if real path is within baseDir (if set)
 		if state.baseDir != "" {
-			relPath, err := filepath.Rel(state.baseDir, absPath)
-			if err != nil || strings.HasPrefix(relPath, "..") {
-				return fmt.Sprintf("❌ 路径超出允许范围: %s", newDir)
+			baseRealPath, err := filepath.EvalSymlinks(state.baseDir)
+			if err == nil {
+				relPath, err := filepath.Rel(baseRealPath, realPath)
+				if err != nil || strings.HasPrefix(relPath, "..") {
+					return fmt.Sprintf("❌ 路径超出允许范围: %s", newDir)
+				}
 			}
 		}
 
-		if info, err := os.Stat(absPath); err != nil || !info.IsDir() {
+		if info, err := os.Stat(realPath); err != nil || !info.IsDir() {
 			return fmt.Sprintf("❌ 目录不存在: %s", newDir)
 		}
 
-		state.cwd = absPath
+		state.cwd = realPath
 
 		// Auto ls after cd for better UX
-		lsCmd := exec.CommandContext(ctx, "ls", "-C", "--group-directories-first")
+		lsArgs := []string{"-C"}
+		if isLinux() {
+			lsArgs = append(lsArgs, "--group-directories-first")
+		}
+		lsCmd := exec.CommandContext(ctx, "ls", lsArgs...)
 		lsCmd.Dir = state.cwd
 		var lsOut bytes.Buffer
 		lsCmd.Stdout = &lsOut
@@ -2296,7 +2323,7 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 		return "✅ 命令执行成功，无输出"
 	}
 
-	return output
+	return formatOutput(output)
 }
 
 // cleanANSI removes ANSI escape codes from output.
@@ -2304,4 +2331,19 @@ func cleanANSI(s string) string {
 	// ANSI escape sequence pattern: \x1b[...m
 	re := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 	return re.ReplaceAllString(s, "")
+}
+
+// isLinux returns true if the OS is Linux.
+func isLinux() bool {
+	return runtime.GOOS == "linux"
+}
+
+// formatOutput wraps output in markdown code block for better display in WeChat.
+func formatOutput(output string) string {
+	if output == "" {
+		return ""
+	}
+	// Remove trailing newlines before closing code block
+	output = strings.TrimRight(output, "\n")
+	return fmt.Sprintf("```\n%s\n```", output)
 }

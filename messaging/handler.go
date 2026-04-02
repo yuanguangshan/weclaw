@@ -2289,7 +2289,7 @@ func (h *Handler) handleShellWithState(ctx context.Context, state *shellModeStat
 			lsOutput := strings.TrimSpace(lsOut.String())
 			if lsOutput != "" {
 				prompt := shellPrompt(state.cwd)
-				return fmt.Sprintf("✅ 已切换到: %s\n```%s\n%s\n```", state.cwd, prompt, cleanANSI(lsOutput))
+				return fmt.Sprintf("✅ 已切换到: %s\n%s\n```\n%s\n```", state.cwd, prompt, cleanANSI(lsOutput))
 			}
 		}
 		return fmt.Sprintf("✅ 已切换到: %s", state.cwd)
@@ -2395,5 +2395,5 @@ func formatShellOutput(cwd string, output string) string {
 	prompt := shellPrompt(cwd)
 	// Remove trailing newlines before closing code block
 	output = strings.TrimRight(output, "\n")
-	return fmt.Sprintf("```%s\n%s\n```", prompt, output)
+	return fmt.Sprintf("%s\n```\n%s\n```", prompt, output)
 }

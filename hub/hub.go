@@ -10,10 +10,13 @@ import (
 	"time"
 )
 
+// MaxHubFileSize is the maximum allowed file size (1MB)
+const MaxHubFileSize = 1 * 1024 * 1024
+
 // Hub manages shared context files for cross-agent collaboration.
 type Hub struct {
 	mu        sync.RWMutex // protects all file operations
-	sharedDir string        // directory for shared context files
+	sharedDir string       // directory for shared context files
 }
 
 // New creates a new Hub with the given shared directory.
@@ -38,9 +41,16 @@ func (h *Hub) SharedDir() string {
 
 // Save writes content to a file in the shared directory with YAML frontmatter.
 // agentName identifies which agent produced the content.
+// If file already exists, auto-renames with timestamp suffix to avoid overwrite.
 func (h *Hub) Save(filename, content, agentName string) (string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+	// Check size limit
+	if len(content) > MaxHubFileSize {
+		return "", fmt.Errorf("file too large (%.1f MB), limit is %d MB",
+			float64(len(content))/(1024*1024), MaxHubFileSize/(1024*1024))
+	}
 
 	// Sanitize filename
 	filename = sanitizeFilename(filename)
@@ -50,8 +60,18 @@ func (h *Hub) Save(filename, content, agentName string) (string, error) {
 
 	filePath := filepath.Join(h.sharedDir, filename)
 
-	// Build frontmatter
-	timestamp := time.Now().Format("2006-01-02T15:04:05+08:00")
+	// Check for conflict and auto-rename
+	if _, err := os.Stat(filePath); err == nil {
+		// File exists, add timestamp suffix
+		base := strings.TrimSuffix(filename, ".md")
+		ts := time.Now().Format("20060102-150405")
+		newFilename := fmt.Sprintf("%s_%s.md", base, ts)
+		filePath = filepath.Join(h.sharedDir, newFilename)
+		filename = newFilename
+	}
+
+	// Build frontmatter with UTC timestamp
+	timestamp := time.Now().UTC().Format(time.RFC3339)
 	frontmatter := fmt.Sprintf("---\nagent: %s\ntimestamp: %s\n---\n\n", agentName, timestamp)
 
 	fullContent := frontmatter + content
@@ -348,12 +368,45 @@ func BuildPrompt(context, message string) string {
 }
 
 // sanitizeFilename removes path traversal attempts and dangerous characters.
+// Also handles Windows reserved names and length limits.
 func sanitizeFilename(name string) string {
 	// Remove path components
 	name = filepath.Base(name)
-	// Remove null bytes and other dangerous chars
+	// Remove null bytes
 	name = strings.ReplaceAll(name, "\x00", "")
 	name = strings.TrimSpace(name)
+
+	// Replace Windows illegal characters: < > : " / \ | ? *
+	illegalChars := []string{"<", ">", ":", "\"", "/", "\\", "|", "?", "*"}
+	for _, c := range illegalChars {
+		name = strings.ReplaceAll(name, c, "_")
+	}
+
+	// Handle Windows reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+	reserved := []string{"CON", "PRN", "AUX", "NUL",
+		"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
+
+	baseName := strings.TrimSuffix(name, ".md")
+	for _, r := range reserved {
+		if strings.EqualFold(baseName, r) {
+			name = "_" + name
+			break
+		}
+	}
+
+	// Length limit (255 chars max on most filesystems)
+	if len(name) > 255 {
+		ext := filepath.Ext(name)
+		base := strings.TrimSuffix(name, ext)
+		maxBase := 255 - len(ext)
+		if maxBase < 1 {
+			maxBase = 250
+			ext = ""
+		}
+		name = base[:maxBase] + ext
+	}
+
 	if name == "" || name == "." || name == ".." {
 		return "untitled.md"
 	}

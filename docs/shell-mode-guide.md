@@ -78,26 +78,34 @@ cat log.txt  # 查看文件
 |------|------|------|
 | `cat` | 查看文件内容 | `cat log.txt` |
 | `head` | 文件头部 | `head -n 20 log.txt` |
-| `tail` | 文件尾部 | `tail -f log.txt` |
+| `tail` | 文件尾部 | `tail -n 100 log.txt` |
+| `nl` | 添加行号 | `nl file.txt` |
 
-### 搜索
+### 搜索与路径
 
 | 命令 | 说明 | 示例 |
 |------|------|------|
 | `grep` | 搜索文本 | `grep "error" log.txt` |
 | `find` | 查找文件 | `find . -name "*.log"` |
-| `which` | 定位命令 | `which go` |
+| `which` | 定位命令路径 | `which go` |
+| `realpath` | 获取绝对路径 | `realpath ./file.txt` |
+| `readlink` | 读取符号链接 | `readlink /usr/bin/python` |
+| `basename` | 获取文件名 | `basename /usr/local/bin/go` |
+| `dirname` | 获取目录路径 | `dirname /usr/local/bin/go` |
 
 ### 文本处理
 
 | 命令 | 说明 | 示例 |
 |------|------|------|
+| `echo` | 输出文本 | `echo $HOME` |
 | `wc` | 统计行数/字数 | `wc -l file.txt` |
 | `sort` | 排序 | `sort names.txt` |
 | `uniq` | 去重 | `sort file.txt \| uniq` |
 | `cut` | 切割字段 | `cut -d: -f1 /etc/passwd` |
 | `awk` | 文本处理 | `awk '{print $1}' log.txt` |
 | `sed` | 文本替换 | `sed 's/old/new/g' file.txt` |
+| `tr` | 字符替换/删除 | `tr 'a-z' 'A-Z' < file.txt` |
+| `xargs` | 参数传递 | 需配合管道使用 |
 
 ### 系统信息
 
@@ -107,6 +115,15 @@ cat log.txt  # 查看文件
 | `df` | 磁盘空间 | `df -h` |
 | `date` | 系统时间 | `date` |
 | `stat` | 文件状态 | `stat file.txt` |
+
+### 不支持的交互式命令
+
+| 命令 | 原因 | 替代方案 |
+|------|------|----------|
+| `htop` / `top` | 交互式界面 | 使用 `df -h`, `du -sh` 查看资源 |
+| `vim` / `nano` | 需要持续输入 | 使用 `cat` / `head` / `tail` 查看内容 |
+| `less` / `more` | 交互式分页 | 使用 `head -n 100` / `tail -n 100` |
+| `alias` | 可绕过安全限制 | 使用完整命令或快捷指令 |
 
 ### 快捷指令
 
@@ -221,6 +238,8 @@ tail -n 100 app.log           # ✅ 查看最后 100 行
 2. 不支持后台任务 (`&`)
 3. 不支持命令替换 (`$()` 或 `` ` ``)
 4. 不在白名单的命令无法执行
+5. 不支持交互式命令（如 `vim`, `nano`, `htop`, `top`）
+6. 不支持 `alias` 和环境变量修改命令
 
 ---
 

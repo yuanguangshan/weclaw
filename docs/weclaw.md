@@ -1,240 +1,57 @@
 # Project Documentation
 
-- **Generated at:** 2026-04-03 01:59:09
-- **Root Dir:** `/Users/ygs/ygs/weclaw`
-- **File Count:** 47
-- **Total Size:** 247.95 KB
+- **Generated at:** 2026-04-04 02:45:21
+- **Root Dir:** `.`
+- **File Count:** 37
+- **Total Lines:** 9104
+- **Total Size:** 251.64 KB
 
 <a name="toc"></a>
 ## 📂 扫描目录
-- [📄 .air.toml](#airtoml) (52 lines, 0.91 KB)
-- [📄 .dockerignore](#dockerignore) (13 lines, 0.09 KB)
-- [📄 .gitignore](#gitignore) (24 lines, 0.18 KB)
-- [📄 Dockerfile](#dockerfile) (16 lines, 0.35 KB)
-- [📄 LICENSE](#license) (21 lines, 1.04 KB)
-- [📄 Makefile](#makefile) (2 lines, 0.03 KB)
-- [📄 agent/acp_agent.go](#agentacp_agentgo) (1342 lines, 34.06 KB)
-- [📄 agent/agent.go](#agentagentgo) (136 lines, 4.45 KB)
-- [📄 agent/cli_agent.go](#agentcli_agentgo) (304 lines, 8.77 KB)
-- [📄 agent/env_test.go](#agentenv_testgo) (62 lines, 1.50 KB)
-- [📄 agent/http_agent.go](#agenthttp_agentgo) (194 lines, 5.23 KB)
-- [📄 api/server.go](#apiservergo) (119 lines, 3.14 KB)
-- [📄 cmd/login.go](#cmdlogingo) (30 lines, 0.56 KB)
-- [📄 cmd/proc_unix.go](#cmdproc_unixgo) (12 lines, 0.16 KB)
-- [📄 cmd/proc_windows.go](#cmdproc_windowsgo) (9 lines, 0.15 KB)
-- [📄 cmd/restart.go](#cmdrestartgo) (40 lines, 0.72 KB)
-- [📄 cmd/root.go](#cmdrootgo) (27 lines, 0.50 KB)
-- [📄 cmd/send.go](#cmdsendgo) (68 lines, 1.84 KB)
-- [📄 cmd/start.go](#cmdstartgo) (435 lines, 11.48 KB)
-- [📄 cmd/status.go](#cmdstatusgo) (31 lines, 0.56 KB)
-- [📄 cmd/stop.go](#cmdstopgo) (21 lines, 0.31 KB)
-- [📄 cmd/update.go](#cmdupdatego) (207 lines, 4.63 KB)
-- [📄 config/config.go](#configconfiggo) (141 lines, 4.21 KB)
-- [📄 config/config_test.go](#configconfig_testgo) (119 lines, 2.53 KB)
-- [📄 config/detect.go](#configdetectgo) (281 lines, 9.21 KB)
-- [📄 config/detect_test.go](#configdetect_testgo) (82 lines, 2.50 KB)
-- [📄 go.mod](#gomod) (15 lines, 0.43 KB)
-- [📄 go.sum](#gosum) (26 lines, 2.09 KB)
-- [📄 hub/hub.go](#hubhubgo) (361 lines, 8.39 KB)
-- [📄 ilink/auth.go](#ilinkauthgo) (177 lines, 3.96 KB)
-- [📄 ilink/client.go](#ilinkclientgo) (224 lines, 5.66 KB)
-- [📄 ilink/monitor.go](#ilinkmonitorgo) (181 lines, 4.60 KB)
-- [📄 ilink/types.go](#ilinktypesgo) (219 lines, 6.62 KB)
-- [📄 install.sh](#installsh) (64 lines, 1.60 KB)
-- [📄 main.go](#maingo) (7 lines, 0.09 KB)
-- [📄 messaging/attachment.go](#messagingattachmentgo) (127 lines, 2.90 KB)
-- [📄 messaging/attachment_test.go](#messagingattachment_testgo) (100 lines, 2.96 KB)
-- [📄 messaging/cdn.go](#messagingcdngo) (232 lines, 6.56 KB)
-- [📄 messaging/handler.go](#messaginghandlergo) (2399 lines, 77.57 KB)
-- [📄 messaging/handler_test.go](#messaginghandler_testgo) (140 lines, 3.60 KB)
-- [📄 messaging/linkhoard.go](#messaginglinkhoardgo) (326 lines, 8.66 KB)
-- [📄 messaging/markdown.go](#messagingmarkdowngo) (103 lines, 3.01 KB)
-- [📄 messaging/media.go](#messagingmediago) (213 lines, 5.31 KB)
-- [📄 messaging/media_test.go](#messagingmedia_testgo) (73 lines, 1.81 KB)
-- [📄 messaging/sender.go](#messagingsendergo) (86 lines, 2.21 KB)
-- [📄 service/com.fastclaw.weclaw.plist](#servicecomfastclawweclawplist) (21 lines, 0.58 KB)
-- [📄 service/weclaw.service](#serviceweclawservice) (16 lines, 0.26 KB)
+- [agent/acp_agent.go](#file-agent-acp_agent.go) (1342 lines, 34.06 KB)
+- [agent/agent.go](#file-agent-agent.go) (136 lines, 4.45 KB)
+- [agent/cli_agent.go](#file-agent-cli_agent.go) (304 lines, 8.77 KB)
+- [agent/env_test.go](#file-agent-env_test.go) (62 lines, 1.50 KB)
+- [agent/http_agent.go](#file-agent-http_agent.go) (194 lines, 5.23 KB)
+- [api/server.go](#file-api-server.go) (119 lines, 3.14 KB)
+- [cmd/login.go](#file-cmd-login.go) (30 lines, 0.56 KB)
+- [cmd/proc_unix.go](#file-cmd-proc_unix.go) (12 lines, 0.16 KB)
+- [cmd/proc_windows.go](#file-cmd-proc_windows.go) (9 lines, 0.15 KB)
+- [cmd/restart.go](#file-cmd-restart.go) (40 lines, 0.72 KB)
+- [cmd/root.go](#file-cmd-root.go) (27 lines, 0.50 KB)
+- [cmd/send.go](#file-cmd-send.go) (68 lines, 1.84 KB)
+- [cmd/start.go](#file-cmd-start.go) (435 lines, 11.48 KB)
+- [cmd/status.go](#file-cmd-status.go) (31 lines, 0.56 KB)
+- [cmd/stop.go](#file-cmd-stop.go) (21 lines, 0.31 KB)
+- [cmd/update.go](#file-cmd-update.go) (207 lines, 4.63 KB)
+- [config/config.go](#file-config-config.go) (141 lines, 4.21 KB)
+- [config/config_test.go](#file-config-config_test.go) (119 lines, 2.53 KB)
+- [config/detect.go](#file-config-detect.go) (281 lines, 9.21 KB)
+- [config/detect_test.go](#file-config-detect_test.go) (82 lines, 2.50 KB)
+- [hub/hub.go](#file-hub-hub.go) (414 lines, 10.01 KB)
+- [hub/hub_test.go](#file-hub-hub_test.go) (406 lines, 8.80 KB)
+- [ilink/auth.go](#file-ilink-auth.go) (177 lines, 3.96 KB)
+- [ilink/client.go](#file-ilink-client.go) (224 lines, 5.66 KB)
+- [ilink/monitor.go](#file-ilink-monitor.go) (181 lines, 4.60 KB)
+- [ilink/types.go](#file-ilink-types.go) (219 lines, 6.62 KB)
+- [main.go](#file-main.go) (7 lines, 0.09 KB)
+- [messaging/attachment.go](#file-messaging-attachment.go) (127 lines, 2.90 KB)
+- [messaging/attachment_test.go](#file-messaging-attachment_test.go) (100 lines, 2.96 KB)
+- [messaging/cdn.go](#file-messaging-cdn.go) (232 lines, 6.56 KB)
+- [messaging/handler.go](#file-messaging-handler.go) (2416 lines, 78.41 KB)
+- [messaging/handler_test.go](#file-messaging-handler_test.go) (140 lines, 3.60 KB)
+- [messaging/linkhoard.go](#file-messaging-linkhoard.go) (326 lines, 8.66 KB)
+- [messaging/markdown.go](#file-messaging-markdown.go) (103 lines, 3.01 KB)
+- [messaging/media.go](#file-messaging-media.go) (213 lines, 5.31 KB)
+- [messaging/media_test.go](#file-messaging-media_test.go) (73 lines, 1.81 KB)
+- [messaging/sender.go](#file-messaging-sender.go) (86 lines, 2.21 KB)
 
 ---
 
-## .air.toml
+<a name="file-agent-acp_agent.go"></a>
+## 📄 agent/acp_agent.go
 
-```toml
-root = "."
-testdata_dir = "testdata"
-tmp_dir = "tmp"
-
-[build]
-  args_bin = ["start", "-f"]
-  bin = "./weclaw"
-  cmd = "go build -o ./weclaw ."
-  delay = 1000
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "debug"]
-  exclude_file = []
-  exclude_regex = ["_test.go"]
-  exclude_unchanged = false
-  follow_symlink = false
-  full_bin = ""
-  include_dir = []
-  include_ext = ["go", "tpl", "tmpl", "html"]
-  include_file = []
-  kill_delay = "0s"
-  log = "build-errors.log"
-  poll = false
-  poll_interval = 0
-  post_cmd = []
-  pre_cmd = []
-  rerun = false
-  rerun_delay = 500
-  send_interrupt = false
-  stop_on_error = false
-
-[color]
-  app = ""
-  build = "yellow"
-  main = "magenta"
-  runner = "green"
-  watcher = "cyan"
-
-[log]
-  main_only = false
-  silent = false
-  time = false
-
-[misc]
-  clean_on_exit = false
-
-[proxy]
-  app_port = 0
-  enabled = false
-  proxy_port = 0
-
-[screen]
-  clear_on_rebuild = false
-  keep_scroll = true
-
-```
-
-[⬆ 回到目录](#toc)
-
-## .dockerignore
-
-```text
-weclaw
-tmp/
-.git/
-.idea/
-.vscode/
-.claude/
-.env
-*.local
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-
-```
-
-[⬆ 回到目录](#toc)
-
-## .gitignore
-
-```text
-# Binary
-weclaw
-
-# Air hot reload
-tmp/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment & config
-.env
-*.local
-
-# Claude Code
-.claude/
-.ai/context.json
-
-```
-
-[⬆ 回到目录](#toc)
-
-## Dockerfile
-
-```text
-FROM golang:1.25-alpine AS builder
-
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /usr/local/bin/weclaw .
-
-FROM alpine:3.21
-
-RUN apk add --no-cache ca-certificates tzdata
-COPY --from=builder /usr/local/bin/weclaw /usr/local/bin/weclaw
-
-VOLUME /root/.weclaw
-ENTRYPOINT ["weclaw"]
-CMD ["start"]
-
-```
-
-[⬆ 回到目录](#toc)
-
-## LICENSE
-
-```text
-MIT License
-
-Copyright (c) 2026 fastclaw-ai
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-```
-
-[⬆ 回到目录](#toc)
-
-## Makefile
-
-```text
-dev:
-	air -c .air.toml start
-```
-
-[⬆ 回到目录](#toc)
-
-## agent/acp_agent.go
-
-```go
+````go
 package agent
 
 import (
@@ -1578,13 +1395,14 @@ func (w *acpStderrWriter) LastError() string {
 	return s
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/agent.go
+<a name="file-agent-agent.go"></a>
+## 📄 agent/agent.go
 
-```go
+````go
 package agent
 
 import (
@@ -1722,13 +1540,14 @@ type Agent interface {
 	SetProgressCallback(callback ProgressCallback)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/cli_agent.go
+<a name="file-agent-cli_agent.go"></a>
+## 📄 agent/cli_agent.go
 
-```go
+````go
 package agent
 
 import (
@@ -2034,13 +1853,14 @@ func (a *CLIAgent) chatCodex(ctx context.Context, message string) (string, error
 	return result, nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/env_test.go
+<a name="file-agent-env_test.go"></a>
+## 📄 agent/env_test.go
 
-```go
+````go
 package agent
 
 import (
@@ -2104,13 +1924,14 @@ func TestMergeEnvOverridesExistingKeyWithEmptyValue(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/http_agent.go
+<a name="file-agent-http_agent.go"></a>
+## 📄 agent/http_agent.go
 
-```go
+````go
 package agent
 
 import (
@@ -2306,13 +2127,14 @@ func (a *HTTPAgent) buildMessages(conversationID string, message string) []ChatM
 	return messages
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## api/server.go
+<a name="file-api-server.go"></a>
+## 📄 api/server.go
 
-```go
+````go
 package api
 
 import (
@@ -2433,13 +2255,14 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/login.go
+<a name="file-cmd-login.go"></a>
+## 📄 cmd/login.go
 
-```go
+````go
 package cmd
 
 import (
@@ -2471,13 +2294,14 @@ var loginCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/proc_unix.go
+<a name="file-cmd-proc_unix.go"></a>
+## 📄 cmd/proc_unix.go
 
-```go
+````go
 //go:build !windows
 
 package cmd
@@ -2491,13 +2315,14 @@ func setSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/proc_windows.go
+<a name="file-cmd-proc_windows.go"></a>
+## 📄 cmd/proc_windows.go
 
-```go
+````go
 //go:build windows
 
 package cmd
@@ -2508,13 +2333,14 @@ func setSysProcAttr(_ *exec.Cmd) {
 	// No Setsid on Windows — process is already detached via Start()
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/restart.go
+<a name="file-cmd-restart.go"></a>
+## 📄 cmd/restart.go
 
-```go
+````go
 package cmd
 
 import (
@@ -2556,13 +2382,14 @@ var restartCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/root.go
+<a name="file-cmd-root.go"></a>
+## 📄 cmd/root.go
 
-```go
+````go
 package cmd
 
 import (
@@ -2591,13 +2418,14 @@ func Execute() {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/send.go
+<a name="file-cmd-send.go"></a>
+## 📄 cmd/send.go
 
-```go
+````go
 package cmd
 
 import (
@@ -2667,13 +2495,14 @@ var sendCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/start.go
+<a name="file-cmd-start.go"></a>
+## 📄 cmd/start.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3110,13 +2939,14 @@ func stopAllWeclaw() {
 	time.Sleep(500 * time.Millisecond)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/status.go
+<a name="file-cmd-status.go"></a>
+## 📄 cmd/status.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3149,13 +2979,14 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/stop.go
+<a name="file-cmd-stop.go"></a>
+## 📄 cmd/stop.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3178,13 +3009,14 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/update.go
+<a name="file-cmd-update.go"></a>
+## 📄 cmd/update.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3393,13 +3225,14 @@ func resolveSymlink(path string) (string, error) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/config.go
+<a name="file-config-config.go"></a>
+## 📄 config/config.go
 
-```go
+````go
 package config
 
 import (
@@ -3542,13 +3375,14 @@ func Save(cfg *Config) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/config_test.go
+<a name="file-config-config_test.go"></a>
+## 📄 config/config_test.go
 
-```go
+````go
 package config
 
 import (
@@ -3669,13 +3503,14 @@ func TestLoadEnvOverridesTopLevelOnly(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/detect.go
+<a name="file-config-detect.go"></a>
+## 📄 config/detect.go
 
-```go
+````go
 package config
 
 import (
@@ -3958,13 +3793,14 @@ func lookPath(binary string) (string, error) {
 	return p, nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/detect_test.go
+<a name="file-config-detect_test.go"></a>
+## 📄 config/detect_test.go
 
-```go
+````go
 package config
 
 import (
@@ -4048,70 +3884,14 @@ func TestDetectAndConfigure_StrippedPath(t *testing.T) {
 	t.Logf("detected claude: type=%s, command=%s", agent.Type, agent.Command)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## go.mod
+<a name="file-hub-hub.go"></a>
+## 📄 hub/hub.go
 
-```text
-module github.com/fastclaw-ai/weclaw
-
-go 1.25.0
-
-require (
-	github.com/google/uuid v1.6.0 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/mdp/qrterminal/v3 v3.2.1 // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
-	golang.org/x/net v0.52.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/term v0.41.0 // indirect
-	rsc.io/qr v0.2.0 // indirect
-)
-
-```
-
-[⬆ 回到目录](#toc)
-
-## go.sum
-
-```text
-github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
-github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
-github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
-github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/mdp/qrterminal/v3 v3.2.1 h1:6+yQjiiOsSuXT5n9/m60E54vdgFsw0zhADHhHLrFet4=
-github.com/mdp/qrterminal/v3 v3.2.1/go.mod h1:jOTmXvnBsMy5xqLniO0R++Jmjs2sTm9dFSuQ5kpz/SU=
-github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
-github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
-github.com/spf13/pflag v1.0.9 h1:9exaQaMOCwffKiiiYk6/BndUBv+iRViNW+4lEMi0PvY=
-github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
-go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
-golang.org/x/net v0.52.0 h1:He/TN1l0e4mmR3QqHMT2Xab3Aj3L9qjbhRm78/6jrW0=
-golang.org/x/net v0.52.0/go.mod h1:R1MAz7uMZxVMualyPXb+VaqGSa3LIaUqk0eEt3w36Sw=
-golang.org/x/sys v0.29.0 h1:TPYlXGxvx1MGTn2GiZDhnjPA9wZzZeGKHHmKhHYvgaU=
-golang.org/x/sys v0.29.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
-golang.org/x/sys v0.42.0 h1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=
-golang.org/x/sys v0.42.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
-golang.org/x/term v0.13.0 h1:bb+I9cTfFazGW51MZqBVmZy7+JEJMouUHTUSKVQLBek=
-golang.org/x/term v0.13.0/go.mod h1:LTmsnFJwVN6bCy1rVCoS+qHT1HhALEFxKncY3WNNh4U=
-golang.org/x/term v0.41.0 h1:QCgPso/Q3RTJx2Th4bDLqML4W6iJiaXFq2/ftQF13YU=
-golang.org/x/term v0.41.0/go.mod h1:3pfBgksrReYfZ5lvYM0kSO0LIkAl4Yl2bXOkKP7Ec2A=
-gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
-rsc.io/qr v0.2.0 h1:6vBLea5/NRMVTz8V66gipeLycZMl/+UlFmk8DvqQ6WY=
-rsc.io/qr v0.2.0/go.mod h1:IF+uZjkb9fqyeF/4tlBoynqmQxUoPfWEKh921coOuXs=
-
-```
-
-[⬆ 回到目录](#toc)
-
-## hub/hub.go
-
-```go
+````go
 package hub
 
 import (
@@ -4124,10 +3904,13 @@ import (
 	"time"
 )
 
+// MaxHubFileSize is the maximum allowed file size (1MB)
+const MaxHubFileSize = 1 * 1024 * 1024
+
 // Hub manages shared context files for cross-agent collaboration.
 type Hub struct {
 	mu        sync.RWMutex // protects all file operations
-	sharedDir string        // directory for shared context files
+	sharedDir string       // directory for shared context files
 }
 
 // New creates a new Hub with the given shared directory.
@@ -4152,9 +3935,16 @@ func (h *Hub) SharedDir() string {
 
 // Save writes content to a file in the shared directory with YAML frontmatter.
 // agentName identifies which agent produced the content.
+// If file already exists, auto-renames with timestamp suffix to avoid overwrite.
 func (h *Hub) Save(filename, content, agentName string) (string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+	// Check size limit
+	if len(content) > MaxHubFileSize {
+		return "", fmt.Errorf("file too large (%.1f MB), limit is %d MB",
+			float64(len(content))/(1024*1024), MaxHubFileSize/(1024*1024))
+	}
 
 	// Sanitize filename
 	filename = sanitizeFilename(filename)
@@ -4164,8 +3954,18 @@ func (h *Hub) Save(filename, content, agentName string) (string, error) {
 
 	filePath := filepath.Join(h.sharedDir, filename)
 
-	// Build frontmatter
-	timestamp := time.Now().Format("2006-01-02T15:04:05+08:00")
+	// Check for conflict and auto-rename
+	if _, err := os.Stat(filePath); err == nil {
+		// File exists, add timestamp suffix
+		base := strings.TrimSuffix(filename, ".md")
+		ts := time.Now().Format("20060102-150405")
+		newFilename := fmt.Sprintf("%s_%s.md", base, ts)
+		filePath = filepath.Join(h.sharedDir, newFilename)
+		filename = newFilename
+	}
+
+	// Build frontmatter with UTC timestamp
+	timestamp := time.Now().UTC().Format(time.RFC3339)
 	frontmatter := fmt.Sprintf("---\nagent: %s\ntimestamp: %s\n---\n\n", agentName, timestamp)
 
 	fullContent := frontmatter + content
@@ -4462,25 +4262,474 @@ func BuildPrompt(context, message string) string {
 }
 
 // sanitizeFilename removes path traversal attempts and dangerous characters.
+// Also handles Windows reserved names and length limits.
 func sanitizeFilename(name string) string {
 	// Remove path components
 	name = filepath.Base(name)
-	// Remove null bytes and other dangerous chars
+	// Remove null bytes
 	name = strings.ReplaceAll(name, "\x00", "")
 	name = strings.TrimSpace(name)
+
+	// Replace Windows illegal characters: < > : " / \ | ? *
+	illegalChars := []string{"<", ">", ":", "\"", "/", "\\", "|", "?", "*"}
+	for _, c := range illegalChars {
+		name = strings.ReplaceAll(name, c, "_")
+	}
+
+	// Handle Windows reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+	reserved := []string{"CON", "PRN", "AUX", "NUL",
+		"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
+
+	baseName := strings.TrimSuffix(name, ".md")
+	for _, r := range reserved {
+		if strings.EqualFold(baseName, r) {
+			name = "_" + name
+			break
+		}
+	}
+
+	// Length limit (255 chars max on most filesystems)
+	if len(name) > 255 {
+		ext := filepath.Ext(name)
+		base := strings.TrimSuffix(name, ext)
+		maxBase := 255 - len(ext)
+		if maxBase < 1 {
+			maxBase = 250
+			ext = ""
+		}
+		name = base[:maxBase] + ext
+	}
+
 	if name == "" || name == "." || name == ".." {
 		return "untitled.md"
 	}
 	return name
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/auth.go
+<a name="file-hub-hub_test.go"></a>
+## 📄 hub/hub_test.go
 
-```go
+````go
+package hub
+
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestHub_SaveAndRead(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Test Save
+	path, err := h.Save("test.md", "hello world", "test-agent")
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Verify path
+	expectedPath := filepath.Join(dir, "test.md")
+	if path != expectedPath {
+		t.Errorf("expected path %s, got %s", expectedPath, path)
+	}
+
+	// Verify content with frontmatter
+	content, err := h.ReadFile("test.md")
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	if !strings.Contains(content, "agent: test-agent") {
+		t.Error("frontmatter missing agent")
+	}
+	if !strings.Contains(content, "hello world") {
+		t.Error("content missing")
+	}
+	if !strings.Contains(content, "timestamp:") {
+		t.Error("frontmatter missing timestamp")
+	}
+}
+
+func TestHub_SaveAutoExtension(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Save without .md extension
+	path, err := h.Save("myfile", "content", "agent")
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	if !strings.HasSuffix(path, ".md") {
+		t.Errorf("expected .md extension, got %s", path)
+	}
+
+	// Verify we can read it with or without extension
+	content, err := h.ReadFile("myfile.md")
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+	if !strings.Contains(content, "content") {
+		t.Error("content mismatch")
+	}
+}
+
+func TestHub_SaveConflictAutoRename(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Save first file
+	path1, err := h.Save("test.md", "v1", "agent1")
+	if err != nil {
+		t.Fatalf("First save failed: %v", err)
+	}
+
+	// Save same filename again - should auto-rename
+	path2, err := h.Save("test.md", "v2", "agent2")
+	if err != nil {
+		t.Fatalf("Second save failed: %v", err)
+	}
+
+	// Paths should be different (auto-renamed)
+	if path1 == path2 {
+		t.Error("expected auto-rename on conflict, but paths are same")
+	}
+
+	// Original file should still have v1
+	content1, err := h.ReadFile("test.md")
+	if err != nil {
+		t.Fatalf("ReadFile original failed: %v", err)
+	}
+	if !strings.Contains(content1, "v1") {
+		t.Error("original file should contain v1")
+	}
+}
+
+func TestHub_ReadAll(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Save multiple files
+	h.Save("file1.md", "content1", "agent1")
+	h.Save("file2.md", "content2", "agent2")
+
+	// Read all
+	all, err := h.ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if !strings.Contains(all, "content1") {
+		t.Error("missing content1")
+	}
+	if !strings.Contains(all, "content2") {
+		t.Error("missing content2")
+	}
+	if !strings.Contains(all, "=== Agent Hub Shared Context ===") {
+		t.Error("missing header")
+	}
+}
+
+func TestHub_List(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Empty hub
+	names, err := h.List()
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(names) != 0 {
+		t.Errorf("expected empty list, got %d", len(names))
+	}
+
+	// Add files
+	h.Save("alpha.md", "a", "agent")
+	h.Save("beta.md", "b", "agent")
+
+	names, err = h.List()
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(names) != 2 {
+		t.Errorf("expected 2 files, got %d", len(names))
+	}
+}
+
+func TestHub_ListWithInfo(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Add files with slight delay to ensure different timestamps
+	h.Save("old.md", "old content", "agent")
+	time.Sleep(10 * time.Millisecond)
+	h.Save("new.md", "new content", "agent")
+
+	files, err := h.ListWithInfo()
+	if err != nil {
+		t.Fatalf("ListWithInfo failed: %v", err)
+	}
+
+	if len(files) != 2 {
+		t.Fatalf("expected 2 files, got %d", len(files))
+	}
+
+	// Should be sorted newest first
+	if files[0].Name != "new.md" {
+		t.Errorf("expected newest first, got %s", files[0].Name)
+	}
+	if files[1].Name != "old.md" {
+		t.Errorf("expected oldest second, got %s", files[1].Name)
+	}
+}
+
+func TestHub_FindByPartialName(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	h.Save("pipe_gemini_analysis.md", "content1", "gemini")
+	h.Save("pipe_claude_review.md", "content2", "claude")
+
+	tests := []struct {
+		partial string
+		expect  string
+		wantErr bool
+	}{
+		{"gemini", "pipe_gemini_analysis.md", false},
+		{"gem", "pipe_gemini_analysis.md", false},
+		{"claude", "pipe_claude_review.md", false},
+		{"nonexistent", "", true},
+		{"", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.partial, func(t *testing.T) {
+			name, err := h.FindByPartialName(tt.partial)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if name != tt.expect {
+					t.Errorf("expected %s, got %s", tt.expect, name)
+				}
+			}
+		})
+	}
+}
+
+func TestHub_FindByPartialNameNewest(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Save multiple files matching same partial
+	h.Save("gemini_v1.md", "old", "agent")
+	time.Sleep(10 * time.Millisecond)
+	h.Save("gemini_v2.md", "new", "agent")
+
+	// Should return newest
+	name, err := h.FindByPartialName("gemini")
+	if err != nil {
+		t.Fatalf("FindByPartialName failed: %v", err)
+	}
+
+	if name != "gemini_v2.md" {
+		t.Errorf("expected newest file gemini_v2.md, got %s", name)
+	}
+}
+
+func TestHub_Exists(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	if h.Exists("nonexistent.md") {
+		t.Error("expected false for nonexistent file")
+	}
+
+	h.Save("exists.md", "content", "agent")
+	if !h.Exists("exists.md") {
+		t.Error("expected true for existing file")
+	}
+}
+
+func TestHub_Clear(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	h.Save("file1.md", "a", "agent")
+	h.Save("file2.md", "b", "agent")
+
+	count, err := h.Clear()
+	if err != nil {
+		t.Fatalf("Clear failed: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("expected 2 files cleared, got %d", count)
+	}
+
+	files, _ := h.List()
+	if len(files) != 0 {
+		t.Errorf("expected empty hub after clear, got %d files", len(files))
+	}
+}
+
+func TestHub_ReadSpecific(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	h.Save("file1.md", "content1", "agent1")
+	h.Save("file2.md", "content2", "agent2")
+
+	result, err := h.ReadSpecific([]string{"file1.md", "file2.md", "nonexistent.md"})
+	if err != nil {
+		t.Fatalf("ReadSpecific failed: %v", err)
+	}
+
+	if !strings.Contains(result, "content1") {
+		t.Error("missing content1")
+	}
+	if !strings.Contains(result, "content2") {
+		t.Error("missing content2")
+	}
+	if !strings.Contains(result, "nonexistent.md (not found)") {
+		t.Error("missing not found indicator")
+	}
+}
+
+func TestHub_ConcurrentAccess(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 20)
+
+	// Concurrent writes
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			_, err := h.Save(fmt.Sprintf("file%d.md", id), fmt.Sprintf("content%d", id), "agent")
+			if err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+
+	// Concurrent reads
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := h.ReadAll()
+			if err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("concurrent access error: %v", err)
+	}
+}
+
+func TestHub_SaveRaw(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	_, err := h.SaveRaw("raw.txt", "raw content")
+	if err != nil {
+		t.Fatalf("SaveRaw failed: %v", err)
+	}
+
+	content, err := h.ReadFile("raw.txt")
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	// Should NOT have frontmatter
+	if strings.Contains(content, "agent:") {
+		t.Error("SaveRaw should not add frontmatter")
+	}
+	if content != "raw content" {
+		t.Errorf("expected 'raw content', got %q", content)
+	}
+}
+
+func TestSanitizeFilename(t *testing.T) {
+	tests := []struct {
+		input  string
+		expect string
+	}{
+		{"normal.md", "normal.md"},
+		{"../../etc/passwd", "passwd"},
+		{"test\x00file.md", "testfile.md"},
+		{"", "untitled.md"},
+		{".", "untitled.md"},
+		{"..", "untitled.md"},
+		{"   ", "untitled.md"},
+		{"/path/to/file.md", "file.md"},
+		// Long filename should be truncated to 255 chars
+		{strings.Repeat("a", 300), strings.Repeat("a", 255)},
+		// Path with illegal chars - filepath.Base extracts last component after /
+		{"test<>:\"/\\|?*.md", "____.md"},
+		// Windows reserved names without extension get .md added by caller
+		{"CON", "_CON"},
+		{"con.md", "_con.md"},
+		{"PRN.md", "_PRN.md"},
+		{"AUX", "_AUX"},
+		{"NUL.md", "_NUL.md"},
+		{"COM1.md", "_COM1.md"},
+		{"LPT1.md", "_LPT1.md"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%q", tt.input), func(t *testing.T) {
+			got := sanitizeFilename(tt.input)
+			if got != tt.expect {
+				t.Errorf("sanitizeFilename(%q) = %q, want %q", tt.input, got, tt.expect)
+			}
+		})
+	}
+}
+
+func TestHub_SizeLimit(t *testing.T) {
+	dir := t.TempDir()
+	h := New(dir)
+
+	// Try to save a file larger than limit
+	largeContent := strings.Repeat("x", 2*1024*1024) // 2MB
+	_, err := h.Save("large.md", largeContent, "agent")
+	if err == nil {
+		t.Error("expected error for oversized file")
+	}
+	if !strings.Contains(err.Error(), "too large") {
+		t.Errorf("expected size limit error, got: %v", err)
+	}
+}
+
+````
+
+[⬆ 回到目录](#toc)
+
+<a name="file-ilink-auth.go"></a>
+## 📄 ilink/auth.go
+
+````go
 package ilink
 
 import (
@@ -4659,13 +4908,14 @@ func CredentialsPath() (string, error) {
 	return AccountsDir()
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/client.go
+<a name="file-ilink-client.go"></a>
+## 📄 ilink/client.go
 
-```go
+````go
 package ilink
 
 import (
@@ -4891,13 +5141,14 @@ func generateWechatUIN() string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/monitor.go
+<a name="file-ilink-monitor.go"></a>
+## 📄 ilink/monitor.go
 
-```go
+````go
 package ilink
 
 import (
@@ -5080,13 +5331,14 @@ func FormatMessageSummary(msg WeixinMessage) string {
 	return fmt.Sprintf("from=%s type=%d state=%d text=%q", msg.FromUserID, msg.MessageType, msg.MessageState, text)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/types.go
+<a name="file-ilink-types.go"></a>
+## 📄 ilink/types.go
 
-```go
+````go
 package ilink
 
 // Message types
@@ -5307,85 +5559,14 @@ type SendTypingResponse struct {
 	ErrMsg string `json:"errmsg,omitempty"`
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## install.sh
+<a name="file-main.go"></a>
+## 📄 main.go
 
-```bash
-#!/bin/sh
-set -e
-
-REPO="fastclaw-ai/weclaw"
-BINARY="weclaw"
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
-
-# Detect OS
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-case "$OS" in
-  darwin|linux) ;;
-  *) echo "Unsupported OS: $OS"; exit 1 ;;
-esac
-
-# Detect architecture
-ARCH=$(uname -m)
-case "$ARCH" in
-  x86_64|amd64) ARCH="amd64" ;;
-  aarch64|arm64) ARCH="arm64" ;;
-  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-esac
-
-echo "Detected: ${OS}/${ARCH}"
-
-# Get latest version
-echo "Fetching latest release..."
-VERSION=$(curl -fsSL -H "User-Agent: weclaw-installer" "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p')
-
-if [ -z "$VERSION" ]; then
-  echo "Error: could not determine latest version. Is there a release on GitHub?"
-  exit 1
-fi
-
-echo "Latest version: ${VERSION}"
-
-# Download
-FILENAME="${BINARY}_${OS}_${ARCH}"
-URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
-
-echo "Downloading ${URL}..."
-TMP=$(mktemp)
-curl -fsSL -o "$TMP" "$URL"
-
-# Install
-chmod +x "$TMP"
-if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
-  mv "$TMP" "${INSTALL_DIR}/${BINARY}"
-else
-  echo "Installing to ${INSTALL_DIR} (requires sudo)..."
-  sudo mkdir -p "$INSTALL_DIR"
-  sudo mv "$TMP" "${INSTALL_DIR}/${BINARY}"
-fi
-
-# Clear macOS quarantine attributes
-if [ "$OS" = "darwin" ]; then
-  xattr -d com.apple.quarantine "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
-  xattr -d com.apple.provenance "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
-fi
-
-echo ""
-echo "weclaw ${VERSION} installed to ${INSTALL_DIR}/${BINARY}"
-echo ""
-echo "Get started:"
-echo "  weclaw start"
-
-```
-
-[⬆ 回到目录](#toc)
-
-## main.go
-
-```go
+````go
 package main
 
 import "github.com/fastclaw-ai/weclaw/cmd"
@@ -5394,13 +5575,14 @@ func main() {
 	cmd.Execute()
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/attachment.go
+<a name="file-messaging-attachment.go"></a>
+## 📄 messaging/attachment.go
 
-```go
+````go
 package messaging
 
 import (
@@ -5529,13 +5711,14 @@ func canonicalizePath(path string, mustExist bool) (string, error) {
 	return filepath.Clean(absPath), nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/attachment_test.go
+<a name="file-messaging-attachment_test.go"></a>
+## 📄 messaging/attachment_test.go
 
-```go
+````go
 package messaging
 
 import (
@@ -5637,13 +5820,14 @@ func TestRewriteReplyWithAttachmentResults(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/cdn.go
+<a name="file-messaging-cdn.go"></a>
+## 📄 messaging/cdn.go
 
-```go
+````go
 package messaging
 
 import (
@@ -5877,13 +6061,14 @@ func aesECBPaddedSize(plaintextSize int) int {
 	return (plaintextSize/aes.BlockSize + 1) * aes.BlockSize
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/handler.go
+<a name="file-messaging-handler.go"></a>
+## 📄 messaging/handler.go
 
-```go
+````go
 package messaging
 
 import (
@@ -7602,6 +7787,17 @@ func (h *Handler) extractAllMedia(ctx context.Context, client *ilink.Client, msg
 					Type:     "file",
 					FileName: item.FileItem.FileName,
 				}
+				// Debug: print full FileItem JSON
+				if fileJSON, err := json.Marshal(item.FileItem); err == nil {
+					log.Printf("[handler] FileItem JSON: %s", string(fileJSON))
+				}
+				if item.FileItem.Media != nil {
+					log.Printf("[handler] file MediaInfo: EncryptQueryParam=%q AESKey=%q EncryptType=%d Len=%s",
+						item.FileItem.Media.EncryptQueryParam[:min(40, len(item.FileItem.Media.EncryptQueryParam))]+"...",
+						item.FileItem.Media.AESKey,
+						item.FileItem.Media.EncryptType,
+						item.FileItem.Len)
+				}
 				if item.FileItem.Media != nil && h.saveDir != "" {
 					// CDN file - download and decrypt
 					ext := filepath.Ext(item.FileItem.FileName)
@@ -7730,6 +7926,8 @@ func downloadCDNMedia(ctx context.Context, client *ilink.Client, media *ilink.Me
 	log.Printf("[handler] downloaded %d bytes of data", len(encryptedData))
 
 	var fileData []byte
+	log.Printf("[handler] file MediaInfo: EncryptQueryParam=%q AESKey=%q EncryptType=%d Len=%d",
+		media.EncryptQueryParam[:20], media.AESKey, media.EncryptType, len(encryptedData))
 	if media.AESKey != "" {
 		// Decrypt using AES-128-ECB
 		// AES key format: base64 -> hex string -> raw bytes
@@ -7748,9 +7946,13 @@ func downloadCDNMedia(ctx context.Context, client *ilink.Client, media *ilink.Me
 		}
 		log.Printf("[handler] decrypted %d bytes", len(fileData))
 	} else {
-		// No encryption key — data is plaintext
+		// No encryption key or EncryptType != 1 — data is plaintext
 		fileData = encryptedData
-		log.Printf("[handler] no AES key, using raw data (no decryption)")
+		if media.AESKey == "" {
+			log.Printf("[handler] no AES key, using raw data (no decryption)")
+		} else {
+			log.Printf("[handler] EncryptType=%d (not AES-128-ECB), using raw data", media.EncryptType)
+		}
 	}
 
 	// Save to local file
@@ -8284,13 +8486,14 @@ func formatShellOutput(cwd string, output string) string {
 	return fmt.Sprintf("%s\n```\n%s\n```", prompt, output)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/handler_test.go
+<a name="file-messaging-handler_test.go"></a>
+## 📄 messaging/handler_test.go
 
-```go
+````go
 package messaging
 
 import (
@@ -8432,13 +8635,14 @@ func TestBuildHelpText(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/linkhoard.go
+<a name="file-messaging-linkhoard.go"></a>
+## 📄 messaging/linkhoard.go
 
-```go
+````go
 package messaging
 
 import (
@@ -8766,13 +8970,14 @@ func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (*LinkMeta
 	return meta, nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/markdown.go
+<a name="file-messaging-markdown.go"></a>
+## 📄 messaging/markdown.go
 
-```go
+````go
 package messaging
 
 import (
@@ -8877,13 +9082,14 @@ func MarkdownToPlainText(text string) string {
 	return strings.TrimSpace(result)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/media.go
+<a name="file-messaging-media.go"></a>
+## 📄 messaging/media.go
 
-```go
+````go
 package messaging
 
 import (
@@ -9098,13 +9304,14 @@ func stripQuery(rawURL string) string {
 	return rawURL
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/media_test.go
+<a name="file-messaging-media_test.go"></a>
+## 📄 messaging/media_test.go
 
-```go
+````go
 package messaging
 
 import "testing"
@@ -9179,13 +9386,14 @@ func TestStripQuery(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/sender.go
+<a name="file-messaging-sender.go"></a>
+## 📄 messaging/sender.go
 
-```go
+````go
 package messaging
 
 import (
@@ -9273,65 +9481,12 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-```
-
-[⬆ 回到目录](#toc)
-
-## service/com.fastclaw.weclaw.plist
-
-```text
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.fastclaw.weclaw</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/weclaw</string>
-        <string>start</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/tmp/weclaw.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/weclaw.log</string>
-</dict>
-</plist>
-
-```
-
-[⬆ 回到目录](#toc)
-
-## service/weclaw.service
-
-```text
-[Unit]
-Description=WeClaw - WeChat AI Agent Bridge
-After=network.target
-
-[Service]
-Type=simple
-User=root
-Group=root
-ExecStart=/usr/local/bin/weclaw start -f
-Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-
-```
+````
 
 [⬆ 回到目录](#toc)
 
 ---
 ### 📊 最终统计汇总
-- **文件总数:** 47
-- **代码总行数:** 8898
-- **物理总大小:** 247.95 KB
+- **文件总数:** 37
+- **代码总行数:** 9104
+- **物理总大小:** 251.64 KB

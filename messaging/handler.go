@@ -58,6 +58,8 @@ type Handler struct {
 	progressCtx     *progressContext // current request context for progress notifications
 	lastReplies     sync.Map         // map[userID]string — last agent reply per user (for /save without message)
 	shellModeStates sync.Map         // map[userID]*shellModeState — per-user shell mode state
+	todoStore       *TodoStore
+	clients         []*ilink.Client
 }
 
 // progressContext holds context for sending progress notifications.
@@ -85,6 +87,7 @@ func NewHandler(factory AgentFactory, saveDefault SaveDefaultFunc) *Handler {
 		factory:       factory,
 		saveDefault:   saveDefault,
 		hub:           hub.New(hub.DefaultDir()),
+		todoStore:     NewTodoStore(hub.DefaultDir()),
 	}
 }
 
@@ -114,6 +117,12 @@ func (h *Handler) SetCustomAliases(aliases map[string]string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.customAliases = aliases
+}
+
+func (h *Handler) SetClients(clients []*ilink.Client) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.clients = clients
 }
 
 // SetAgentMetas sets the list of all configured agents (for /status).
@@ -241,7 +250,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -493,6 +502,14 @@ handleBuiltinCommand:
 		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/podcast") {
 		reply := h.handlePodcast(ctx, client, msg, effectiveTrimmed, clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/todo") {
+		reply := h.handleTodo(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)

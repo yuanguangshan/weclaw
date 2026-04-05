@@ -2118,19 +2118,39 @@ func (h *Handler) handleDebate(ctx context.Context, client *ilink.Client, msg il
 // runDebate executes the debate rounds and sends results to the user.
 func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, proAgent, conAgent, topic, clientID string) {
 	const rounds = 3
-	var debateLog strings.Builder
+	var prevConReply string
 
-	debateLog.WriteString(fmt.Sprintf("🎭 **辩论: %s**\n\n", topic))
+	// Helper: send a standalone message (no contextToken dependency)
+	sendMsg := func(text string) {
+		cid := NewClientID()
+		plainText := MarkdownToPlainText(text)
+		req := &ilink.SendMessageRequest{
+			Msg: ilink.SendMsg{
+				FromUserID:   client.BotID(),
+				ToUserID:     msg.FromUserID,
+				ClientID:     cid,
+				MessageType:  ilink.MessageTypeBot,
+				MessageState: ilink.MessageStateFinish,
+				ItemList: []ilink.MessageItem{
+					{Type: ilink.ItemTypeText, TextItem: &ilink.TextItem{Text: plainText}},
+				},
+			},
+		}
+		resp, err := client.SendMessage(ctx, req)
+		if err != nil || resp.Ret != 0 {
+			log.Printf("[debate] failed to send: err=%v ret=%d", err, resp.Ret)
+		}
+	}
+
+	// Send debate header
+	sendMsg(fmt.Sprintf("🎭 **辩论: %s**\n正方: %s | 反方: %s", topic, proAgent, conAgent))
 
 	for round := 1; round <= rounds; round++ {
 		// Send progress notification
-		progressMsg := fmt.Sprintf("🔄 第 %d/%d 轮辩论进行中...", round, rounds)
-		if err := SendTextReply(ctx, client, msg.FromUserID, progressMsg, msg.ContextToken, clientID); err != nil {
-			log.Printf("[debate] failed to send progress: %v", err)
-		}
+		sendMsg(fmt.Sprintf("🔄 第 %d/%d 轮辩论进行中...", round, rounds))
 
-		// Round 1: Pro side argues first
-		var proPrompt, conPrompt string
+		// Build pro prompt
+		var proPrompt string
 		if round == 1 {
 			proPrompt = fmt.Sprintf(`你现在是辩论赛的正方。请针对以下话题，提出你的核心论点和论据（3-5个要点），立场鲜明地展开论述。
 
@@ -2138,50 +2158,38 @@ func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink
 你的立场: 正方（支持/赞同）
 
 请用清晰的逻辑、具体的例子来论证。控制在 500 字以内。`, topic)
-
-			conPrompt = fmt.Sprintf(`你现在是辩论赛的反方。以下是正方的观点，请逐一反驳，并提出你自己的核心论点。
-
-话题: %s
-正方的观点:
-%s
-
-你的立场: 反方（反对/不赞同）
-
-请有理有据地反驳并提出自己的观点。控制在 500 字以内。`, topic, "") // Will be filled after pro speaks
 		} else {
-			// Subsequent rounds: each side responds to the other
 			proPrompt = fmt.Sprintf(`辩论继续。以下是反方上一轮的发言。请针对反方的论点进行回应和反驳，并进一步强化你的观点。
 
 话题: %s
 反方的观点:
 %s
 
-请继续你的论述。控制在 400 字以内。`, topic, "")
-
-			conPrompt = fmt.Sprintf(`辩论继续。以下是正方上一轮的发言。请针对正方的论点进行回应和反驳，并进一步强化你的观点。
-
-话题: %s
-正方的观点:
-%s
-
-请继续你的论述。控制在 400 字以内。`, topic, "")
+请继续你的论述。控制在 400 字以内。`, topic, prevConReply)
 		}
 
 		// Pro speaks
 		proAg, proErr := h.getAgent(ctx, proAgent)
 		var proReply string
 		if proErr != nil {
-			debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 ---\n[正方 %s] 出错: %v\n", round, proAgent, proErr))
+			proText := fmt.Sprintf("[正方 %s] 出错: %v", proAgent, proErr)
+			log.Printf("[debate] %s", proText)
+			sendMsg(proText)
 		} else {
 			proReply, proErr = proAg.Chat(ctx, msg.FromUserID+"_debate_pro", proPrompt)
 			if proErr != nil {
-				debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 ---\n[正方 %s] 出错: %v\n", round, proAgent, proErr))
+				proText := fmt.Sprintf("[正方 %s] 出错: %v", proAgent, proErr)
+				log.Printf("[debate] %s", proText)
+				sendMsg(proText)
 			} else {
-				debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 正方 (%s) ---\n%s\n", round, proAgent, proReply))
+				proText := fmt.Sprintf("📢 **第 %d 轮 正方 (%s)**\n\n%s", round, proAgent, proReply)
+				log.Printf("[debate] pro round %d: %s", round, truncate(proReply, 80))
+				sendMsg(proText)
 			}
 		}
 
-		// Update con prompt with pro's reply
+		// Build con prompt with pro's reply
+		var conPrompt string
 		if proReply != "" {
 			if round == 1 {
 				conPrompt = fmt.Sprintf(`你现在是辩论赛的反方。以下是正方的观点，请逐一反驳，并提出你自己的核心论点。
@@ -2208,48 +2216,32 @@ func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink
 		conAg, conErr := h.getAgent(ctx, conAgent)
 		var conReply string
 		if conErr != nil {
-			debateLog.WriteString(fmt.Sprintf("[反方 %s] 出错: %v\n", conAgent, conErr))
+			conText := fmt.Sprintf("[反方 %s] 出错: %v", conAgent, conErr)
+			log.Printf("[debate] %s", conText)
+			sendMsg(conText)
 		} else {
 			conReply, conErr = conAg.Chat(ctx, msg.FromUserID+"_debate_con", conPrompt)
 			if conErr != nil {
-				debateLog.WriteString(fmt.Sprintf("[反方 %s] 出错: %v\n", conAgent, conErr))
+				conText := fmt.Sprintf("[反方 %s] 出错: %v", conAgent, conErr)
+				log.Printf("[debate] %s", conText)
+				sendMsg(conText)
 			} else {
-				debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 反方 (%s) ---\n%s\n", round, conAgent, conReply))
+				conText := fmt.Sprintf("📢 **第 %d 轮 反方 (%s)**\n\n%s", round, conAgent, conReply)
+				log.Printf("[debate] con round %d: %s", round, truncate(conReply, 80))
+				sendMsg(conText)
 			}
 		}
 
-		// Small delay between rounds to avoid flooding
-		time.Sleep(1 * time.Second)
-	}
+		// Save con reply for next round's pro prompt
+		prevConReply = conReply
 
-	// Send the debate log
-	fullLog := debateLog.String()
-
-	// If the log is too long, split into multiple messages
-	const maxLen = 2000
-	if len(fullLog) <= maxLen {
-		if err := SendTextReply(ctx, client, msg.FromUserID, fullLog, msg.ContextToken, clientID); err != nil {
-			log.Printf("[debate] failed to send result: %v", err)
-		}
-	} else {
-		// Send in chunks
-		for i := 0; i < len(fullLog); i += maxLen {
-			end := i + maxLen
-			if end > len(fullLog) {
-				end = len(fullLog)
-			}
-			chunk := fullLog[i:end]
-			if err := SendTextReply(ctx, client, msg.FromUserID, chunk, msg.ContextToken, clientID); err != nil {
-				log.Printf("[debate] failed to send chunk: %v", err)
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
+		// Small delay between rounds
+		time.Sleep(2 * time.Second)
 	}
 
 	// Send completion notice
-	if err := SendTextReply(ctx, client, msg.FromUserID, "✅ 辩论结束！使用 /podcast 可以将辩论内容生成播客。", msg.ContextToken, clientID); err != nil {
-		log.Printf("[debate] failed to send completion: %v", err)
-	}
+	time.Sleep(3 * time.Second)
+	sendMsg("✅ 辩论结束！使用 /podcast 可以将辩论内容生成播客。")
 }
 
 // handleShell processes /sh or /$ command to execute shell commands.

@@ -59,6 +59,7 @@ type Handler struct {
 	lastReplies     sync.Map         // map[userID]string — last agent reply per user (for /save without message)
 	shellModeStates sync.Map         // map[userID]*shellModeState — per-user shell mode state
 	todoStore       *TodoStore
+	timerStore      *TimerStore
 	clients         []*ilink.Client
 }
 
@@ -88,6 +89,7 @@ func NewHandler(factory AgentFactory, saveDefault SaveDefaultFunc) *Handler {
 		saveDefault:   saveDefault,
 		hub:           hub.New(hub.DefaultDir()),
 		todoStore:     NewTodoStore(hub.DefaultDir()),
+		timerStore:    NewTimerStore(hub.DefaultDir()),
 	}
 }
 
@@ -250,7 +252,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -510,6 +512,14 @@ handleBuiltinCommand:
 		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/todo") {
 		reply := h.handleTodo(ctx, client, msg, effectiveTrimmed, clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/timer") {
+		reply := h.handleTimer(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -1555,12 +1565,19 @@ func buildHelpText() string {
   /sh <命令>       执行单次命令（不进入模式）
   命令行模式下: cd /q 退出/切换目录，ls cat pwd 等
 
-📋 待办事项
-  /todo <事项>        添加待办（支持自然语言时间）
-  /todo list          查看待办列表
-  /todo done <编号>   完成待办
-  /todo del <编号>    删除待办
-  /todo clear         清空所有待办
+ 📋 待办事项
+   /todo <事项>        添加待办（支持自然语言时间）
+   /todo list          查看待办列表
+   /todo done <编号>   完成待办
+   /todo del <编号>    删除待办
+   /todo clear         清空所有待办
+
+ ⏱ 计时器
+   /timer 25           25分钟倒计时
+   /timer 2h 写报告    设定时间+标签（支持 AI 解析）
+   /timer list         查看进行中的计时器
+   /timer cancel <编号> 取消计时器
+   /timer clear        取消所有计时器
 
 📂 Agent（默认: nanobot）
   nanobot(nb,n,bot)  claude(c)  gemini(g)  deepseek(ds)

@@ -161,6 +161,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	// Set clients for todo scheduler reminders
 	handler.SetClients(clients)
 	handler.StartTodoScheduler(ctx)
+	handler.StartTimerScheduler(ctx)
 
 	// Resolve API addr: flag > env/config > default
 	apiAddr := cfg.APIAddr // already includes env override from loadEnv

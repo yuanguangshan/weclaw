@@ -234,17 +234,23 @@ var agentAliases = map[string]string{
 
 // resolveAlias returns the full agent name for an alias, or the original name if no alias matches.
 // Checks custom aliases (from config) first, then built-in aliases.
+// Matching is case-insensitive for aliases, and also falls back to case-insensitive agent name matching.
 func (h *Handler) resolveAlias(name string) string {
+	lower := strings.ToLower(name)
 	h.mu.RLock()
 	custom := h.customAliases
 	h.mu.RUnlock()
 	if custom != nil {
-		if full, ok := custom[name]; ok {
-			return full
+		for alias, full := range custom {
+			if strings.ToLower(alias) == lower {
+				return full
+			}
 		}
 	}
-	if full, ok := agentAliases[name]; ok {
-		return full
+	for alias, full := range agentAliases {
+		if strings.ToLower(alias) == lower {
+			return full
+		}
 	}
 	return name
 }
@@ -1136,7 +1142,7 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 		if len(parts) < 2 {
 			return "用法: /hub pipe <目标agent> <消息>\n       /hub pipe <目标agent> @<编号> <消息>\n       /hub pipe <目标agent> @-1 <消息>\n       /hub pipe <目标agent> @<文件名> <消息>\n\n示例: /hub pipe gemini 分析量子计算\n      /hub pipe claude @1 继续分析\n      /hub pipe claude @-1 补充说明\n      /hub pipe claude @gemini 继续分析 (部分匹配)\n      /hub pipe claude @gem 继续分析 (简写)"
 		}
-		targetAgent := parts[1]
+		targetAgent := h.resolveAlias(parts[1])
 		var message string
 		// 处理引用语法: @<编号>、@-1、@<文件名>
 		if len(parts) >= 3 && strings.HasPrefix(parts[2], "@") {

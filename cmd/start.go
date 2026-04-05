@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"log"
 	"os"
 	"os/exec"
@@ -230,8 +231,20 @@ func runMonitorWithRestart(ctx context.Context, creds *ilink.Credentials, handle
 
 // createAgentByName creates and starts an agent by its config name.
 // Returns nil if the agent is not configured or fails to start.
+// Agent name matching is case-insensitive.
 func createAgentByName(ctx context.Context, cfg *config.Config, name string) agent.Agent {
 	agCfg, ok := cfg.Agents[name]
+	if !ok {
+		// Case-insensitive fallback
+		for k, v := range cfg.Agents {
+			if strings.EqualFold(k, name) {
+				agCfg = v
+				name = k // use canonical name
+				ok = true
+				break
+			}
+		}
+	}
 	if !ok {
 		log.Printf("[agent] %q not found in config", name)
 		return nil

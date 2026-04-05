@@ -43,21 +43,21 @@ type AgentMeta struct {
 
 // Handler processes incoming WeChat messages and dispatches replies.
 type Handler struct {
-	mu            sync.RWMutex
-	defaultName   string
-	agents        map[string]agent.Agent // name -> running agent
-	agentMetas    []AgentMeta            // all configured agents (for /status)
-	agentWorkDirs map[string]string      // agent name -> configured/runtime cwd
-	customAliases map[string]string      // custom alias -> agent name (from config)
-	factory       AgentFactory
-	saveDefault   SaveDefaultFunc
-	hub           *hub.Hub // shared context for cross-agent collaboration
-	contextTokens sync.Map   // map[userID]contextToken
-	saveDir       string     // directory to save images/files to
-	seenMsgs      sync.Map   // map[int64]time.Time — dedup by message_id
-	progressCtx   *progressContext // current request context for progress notifications
-	lastReplies   sync.Map   // map[userID]string — last agent reply per user (for /save without message)
-	shellModeStates sync.Map // map[userID]*shellModeState — per-user shell mode state
+	mu              sync.RWMutex
+	defaultName     string
+	agents          map[string]agent.Agent // name -> running agent
+	agentMetas      []AgentMeta            // all configured agents (for /status)
+	agentWorkDirs   map[string]string      // agent name -> configured/runtime cwd
+	customAliases   map[string]string      // custom alias -> agent name (from config)
+	factory         AgentFactory
+	saveDefault     SaveDefaultFunc
+	hub             *hub.Hub         // shared context for cross-agent collaboration
+	contextTokens   sync.Map         // map[userID]contextToken
+	saveDir         string           // directory to save images/files to
+	seenMsgs        sync.Map         // map[int64]time.Time — dedup by message_id
+	progressCtx     *progressContext // current request context for progress notifications
+	lastReplies     sync.Map         // map[userID]string — last agent reply per user (for /save without message)
+	shellModeStates sync.Map         // map[userID]*shellModeState — per-user shell mode state
 }
 
 // progressContext holds context for sending progress notifications.
@@ -241,7 +241,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -1012,11 +1012,12 @@ func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilin
 
 // handleHub processes the /hub command: reads shared context and optionally sends to agent.
 // Usage:
-//   /hub {message}              — read all shared files, inject context, send to default agent
-//   /hub {filename} {msg}       — read specific file, inject, send to agent
-//   /hub {filename} {msg}       — if filename ends with .md, save reply to hub
-//   /hub ls                     — list files in hub
-//   /hub clear                  — clear all hub files
+//
+//	/hub {message}              — read all shared files, inject context, send to default agent
+//	/hub {filename} {msg}       — read specific file, inject, send to agent
+//	/hub {filename} {msg}       — if filename ends with .md, save reply to hub
+//	/hub ls                     — list files in hub
+//	/hub clear                  — clear all hub files
 func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
 	// Parse: /hub [filename] [message] | /hub ls | /hub clear
 	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/hub"))
@@ -1235,9 +1236,10 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 
 // handlePipe 实现自动链式调用: 先将消息发送给默认 agent，然后将回复保存并发送给目标 agent
 // 支持引用语法：
-//   /hub pipe <agent> @<编号> <消息> - 直接使用 Hub 中编号对应的文件作为源内容
-//   /hub pipe <agent> @-1 <消息> - 使用最新文件（-1=最新，-2=第二新）
-//   /hub pipe <agent> @<文件名> <消息> - 直接使用文件名引用
+//
+//	/hub pipe <agent> @<编号> <消息> - 直接使用 Hub 中编号对应的文件作为源内容
+//	/hub pipe <agent> @-1 <消息> - 使用最新文件（-1=最新，-2=第二新）
+//	/hub pipe <agent> @<文件名> <消息> - 直接使用文件名引用
 func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, targetAgent, message, clientID string) string {
 	log.Printf("[hub/pipe] starting pipe: target=%s, message=%q", targetAgent, truncate(message, 50))
 
@@ -1512,6 +1514,11 @@ func buildHelpText() string {
   /new /clear      新会话
   /cwd /path       切换工作目录
   /info /help      信息 / 帮助
+
+🎙️ 播客生成
+  /podcast         使用上一条回复生成播客
+  /podcast <内容>   指定内容生成播客
+  （无论当前处于哪个 agent，均会自动拦截并发送）
 
 🖥️ 终端模拟
   /sh              进入命令行模式（支持持久化目录、免前缀）

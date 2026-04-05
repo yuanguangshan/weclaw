@@ -138,3 +138,62 @@ func TestBuildHelpText(t *testing.T) {
 		t.Error("help text should mention /help")
 	}
 }
+
+func TestParseCommand_PodcastBuiltin(t *testing.T) {
+	h := newTestHandler()
+
+	// Test /podcast alone - should not be parsed as agent name
+	names, msg := h.parseCommand("/podcast some text")
+	if len(names) != 0 {
+		t.Errorf("expected no agent names, got %v", names)
+	}
+	if msg != "/podcast some text" {
+		t.Errorf("expected '/podcast some text', got %q", msg)
+	}
+
+	// Test /podcast alone
+	names, msg = h.parseCommand("/podcast")
+	if len(names) != 0 {
+		t.Errorf("expected no agent names, got %v", names)
+	}
+	if msg != "/podcast" {
+		t.Errorf("expected '/podcast', got %q", msg)
+	}
+}
+
+func TestParseCommand_PodcastWithAgentPrefix(t *testing.T) {
+	h := newTestHandler()
+
+	// Test @cc /podcast - should intercept /podcast and not treat as agent command
+	names, msg := h.parseCommand("@cc /podcast some text")
+	// The parser should recognize @cc as agent, but then /podcast as builtin command
+	// So it returns the original text starting from /podcast
+	if len(names) != 1 || names[0] != "claude" {
+		t.Errorf("expected [claude], got %v", names)
+	}
+	if msg != "/podcast some text" {
+		t.Errorf("expected '/podcast some text', got %q", msg)
+	}
+
+	// Test /claude /podcast - similar behavior
+	names, msg = h.parseCommand("/claude /podcast some text")
+	if len(names) != 1 || names[0] != "claude" {
+		t.Errorf("expected [claude], got %v", names)
+	}
+	if msg != "/podcast some text" {
+		t.Errorf("expected '/podcast some text', got %q", msg)
+	}
+}
+
+func TestIsBuiltinCommand_Podcast(t *testing.T) {
+	// Test /podcast variants
+	if !isBuiltinCommand("/podcast") {
+		t.Error("/podcast should be a builtin command")
+	}
+	if !isBuiltinCommand("/podcast some text") {
+		t.Error("/podcast with text should be a builtin command")
+	}
+	if isBuiltinCommand("/podcasting") {
+		t.Error("/podcasting should NOT be a builtin command")
+	}
+}

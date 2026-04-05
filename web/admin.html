@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeClaw Admin</title>
+<style>
+:root {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-card: #16213e;
+  --bg-hover: #1f3056;
+  --bg-input: #0d1b2a;
+  --border: #2a3a5c;
+  --text-primary: #e0e0e0;
+  --text-secondary: #8892a4;
+  --text-muted: #5a6478;
+  --accent: #4a9eff;
+  --accent-hover: #3a8eef;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --radius: 8px;
+  --sidebar-width: 220px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  display: flex;
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+}
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.sidebar-header small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.sidebar-nav { flex: 1; padding: 8px 0; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.nav-item.active {
+  background: var(--bg-hover);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+.nav-item .icon { width: 18px; text-align: center; font-style: normal; }
+
+/* Main Content */
+.main {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  padding: 24px;
+  min-height: 100vh;
+}
+.page { display: none; }
+.page.active { display: block; }
+.page-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.page-header h2 { font-size: 22px; font-weight: 600; }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.card-value { font-size: 28px; font-weight: 700; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* Tables */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+tr:hover td { background: var(--bg-hover); }
+.code { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-success { background: var(--success); color: #000; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: var(--danger-hover); }
+.btn-ghost {
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-group { display: flex; gap: 8px; }
+
+/* Forms */
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+input, select, textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.form-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 60px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 560px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 16px; }
+.modal-close {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 20px; cursor: pointer;
+}
+.modal-close:hover { color: var(--text-primary); }
+.modal-body { padding: 20px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-acp { background: #2d1b69; color: #a78bfa; }
+.badge-cli { background: #1b4332; color: #6ee7b7; }
+.badge-http { background: #1e3a5f; color: #7dd3fc; }
+.badge-running { background: #1b4332; color: #34d399; }
+.badge-stopped { background: #3f1d1d; color: #f87171; }
+.badge-pending { background: #1e3a5f; color: #7dd3fc; }
+.badge-done { background: #1b4332; color: #34d399; }
+.badge-default { background: var(--accent); color: #fff; }
+
+/* Logs */
+.log-viewer {
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 600px;
+  overflow-y: auto;
+  color: #c0c0c0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.log-viewer .log-time { color: var(--text-muted); }
+.log-viewer .log-err { color: var(--danger); }
+.log-viewer .log-info { color: var(--accent); }
+.log-toolbar {
+  display: flex; gap: 8px; margin-bottom: 12px; align-items: center;
+}
+.log-toolbar input { max-width: 300px; }
+
+/* Toast */
+.toast-container {
+  position: fixed; top: 20px; right: 20px; z-index: 300;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #fff;
+  animation: slideIn 0.3s ease;
+  max-width: 360px;
+}
+.toast-success { background: #059669; }
+.toast-error { background: #dc2626; }
+.toast-info { background: #2563eb; }
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Status indicator */
+.status-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-dot.running { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.status-dot.stopped { background: var(--danger); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { width: 56px; }
+  .sidebar-header h1, .sidebar-header small, .nav-item span { display: none; }
+  .nav-item { justify-content: center; padding: 12px; }
+  .main { margin-left: 56px; }
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h1>WeClaw</h1>
+    <small>WeChat AI Bridge</small>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-page="dashboard">
+      <i class="icon">&#9632;</i><span>Dashboard</span>
+    </div>
+    <div class="nav-item" data-page="agents">
+      <i class="icon">&#9881;</i><span>Agents</span>
+    </div>
+    <div class="nav-item" data-page="messages">
+      <i class="icon">&#9993;</i><span>Messages</span>
+    </div>
+    <div class="nav-item" data-page="hub">
+      <i class="icon">&#128193;</i><span>Hub</span>
+    </div>
+    <div class="nav-item" data-page="todos">
+      <i class="icon">&#9745;</i><span>Todos</span>
+    </div>
+    <div class="nav-item" data-page="timers">
+      <i class="icon">&#9202;</i><span>Timers</span>
+    </div>
+    <div class="nav-item" data-page="logs">
+      <i class="icon">&#128196;</i><span>Logs</span>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+
+  <!-- Dashboard -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <h2>Dashboard</h2>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()">Refresh</button>
+      </div>
+    </div>
+    <div class="card-grid" id="dashboard-cards">
+      <div class="card">
+        <div class="card-title">Service Status</div>
+        <div class="card-value" id="d-status"><span class="status-dot stopped"></span>Stopped</div>
+      </div>
+      <div class="card">
+        <div class="card-title">PID</div>
+        <div class="card-value" id="d-pid">-</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Default Agent</div>
+        <div class="card-value" id="d-agent">-</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Agents</div>
+        <div class="card-value" id="d-agents">-</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Accounts</div>
+        <div class="card-value" id="d-accounts">-</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Hub Files</div>
+        <div class="card-value" id="d-hub">-</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Quick Actions</div>
+      <div class="btn-group" style="margin-top:8px;">
+        <button class="btn btn-primary btn-sm" onclick="apiPost('/api/agents/detect',null).then(r=>{toast('Detection complete: '+r.new_agents+' new agents');refreshDashboard()})">Detect Agents</button>
+        <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()">Refresh Status</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agents -->
+  <div id="page-agents" class="page">
+    <div class="page-header">
+      <h2>Agent Management</h2>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="openAgentModal()">Add Agent</button>
+        <button class="btn btn-ghost btn-sm" onclick="apiPost('/api/agents/detect',null).then(r=>{toast(r.new_agents+' new agents detected');loadAgents()})">Auto Detect</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadAgents()">Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Model</th><th>Command / Endpoint</th><th>Aliases</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="agents-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="page-messages" class="page">
+    <div class="page-header">
+      <h2>Send Message</h2>
+    </div>
+    <div class="card" style="max-width:600px;">
+      <div class="form-group">
+        <label>To (WeChat User ID)</label>
+        <input id="msg-to" placeholder="user_id@im.wechat">
+      </div>
+      <div class="form-group">
+        <label>Text Message</label>
+        <textarea id="msg-text" rows="4" placeholder="Enter message text..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Media URL (optional)</label>
+        <input id="msg-media" placeholder="https://example.com/image.png">
+      </div>
+      <button class="btn btn-primary" onclick="sendMessage()">Send Message</button>
+    </div>
+  </div>
+
+  <!-- Hub -->
+  <div id="page-hub" class="page">
+    <div class="page-header">
+      <h2>Hub Files</h2>
+      <div class="btn-group">
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('Clear all hub files?'))apiDelete('/api/hub/clear').then(r=>{toast('Cleared '+r.deleted+' files');loadHub()})">Clear All</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadHub()">Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>File Name</th><th>Modified</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="hub-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Todos -->
+  <div id="page-todos" class="page">
+    <div class="page-header">
+      <h2>Todo List</h2>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="openAddTodo()">Add Todo</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadTodos()">Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Title</th><th>User</th><th>Due</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="todos-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timers -->
+  <div id="page-timers" class="page">
+    <div class="page-header">
+      <h2>Timers</h2>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="openAddTimer()">Add Timer</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadTimers()">Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Label</th><th>Remaining</th><th>End Time</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="timers-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logs -->
+  <div id="page-logs" class="page">
+    <div class="page-header">
+      <h2>Logs</h2>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" id="log-auto-btn" onclick="toggleAutoRefresh()">Auto: OFF</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadLogs()">Refresh</button>
+      </div>
+    </div>
+    <div class="log-toolbar">
+      <input id="log-search" placeholder="Filter logs..." oninput="filterLogs()">
+    </div>
+    <div class="log-viewer" id="log-viewer">Loading...</div>
+  </div>
+
+</div>
+
+<!-- Agent Modal -->
+<div class="modal-overlay" id="agent-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="agent-modal-title">Add Agent</h3>
+      <button class="modal-close" onclick="closeAgentModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Agent Name</label>
+        <input id="agent-name" placeholder="e.g. claude, gpt, deepseek">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type</label>
+          <select id="agent-type" onchange="toggleAgentFields()">
+            <option value="http">HTTP (API)</option>
+            <option value="cli">CLI</option>
+            <option value="acp">ACP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input id="agent-model" placeholder="e.g. gpt-4, claude-sonnet">
+        </div>
+      </div>
+      <div class="form-group" id="field-endpoint">
+        <label>Endpoint (HTTP)</label>
+        <input id="agent-endpoint" placeholder="https://api.example.com/v1/chat/completions">
+      </div>
+      <div class="form-group" id="field-apikey">
+        <label>API Key (HTTP)</label>
+        <input id="agent-apikey" type="password" placeholder="sk-...">
+      </div>
+      <div class="form-group" id="field-command">
+        <label>Command (CLI/ACP)</label>
+        <input id="agent-command" placeholder="/usr/local/bin/claude">
+      </div>
+      <div class="form-group" id="field-args">
+        <label>Args (JSON array, CLI/ACP)</label>
+        <input id="agent-args" placeholder='["acp"]'>
+      </div>
+      <div class="form-group" id="field-cwd">
+        <label>Working Directory</label>
+        <input id="agent-cwd" placeholder="/path/to/workspace">
+      </div>
+      <div class="form-group">
+        <label>System Prompt</label>
+        <textarea id="agent-system-prompt" rows="3" placeholder="Optional system prompt..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Aliases (comma separated)</label>
+        <input id="agent-aliases" placeholder="e.g. gpt, 4o">
+      </div>
+      <div class="form-group" id="field-maxhistory">
+        <label>Max History (HTTP)</label>
+        <input id="agent-maxhistory" type="number" placeholder="0 = unlimited">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAgentModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAgent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hub File Modal -->
+<div class="modal-overlay" id="hub-modal">
+  <div class="modal" style="width:700px;">
+    <div class="modal-header">
+      <h3 id="hub-modal-title">File Content</h3>
+      <button class="modal-close" onclick="closeHubModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <pre id="hub-modal-content" style="white-space:pre-wrap;word-break:break-word;background:var(--bg-primary);padding:12px;border-radius:6px;max-height:60vh;overflow-y:auto;font-size:13px;line-height:1.5;"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// --- API helpers ---
+const API = '';
+async function apiGet(url) {
+  const r = await fetch(API + url);
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({error: r.statusText}));
+    throw new Error(e.error || r.statusText);
+  }
+  return r.json();
+}
+async function apiPost(url, body) {
+  const r = await fetch(API + url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: body ? JSON.stringify(body) : '{}'
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({error: r.statusText}));
+    throw new Error(e.error || r.statusText);
+  }
+  return r.json();
+}
+async function apiPut(url, body) {
+  const r = await fetch(API + url, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({error: r.statusText}));
+    throw new Error(e.error || r.statusText);
+  }
+  return r.json();
+}
+async function apiDelete(url) {
+  const r = await fetch(API + url, { method: 'DELETE' });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({error: r.statusText}));
+    throw new Error(e.error || r.statusText);
+  }
+  return r.json();
+}
+
+// --- Toast ---
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// --- Navigation ---
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    const page = item.dataset.page;
+    document.getElementById('page-' + page).classList.add('active');
+    // Load data for the page
+    pageLoaders[page] && pageLoaders[page]();
+  });
+});
+
+const pageLoaders = {
+  dashboard: refreshDashboard,
+  agents: loadAgents,
+  hub: loadHub,
+  todos: loadTodos,
+  timers: loadTimers,
+  logs: loadLogs,
+};
+
+// --- Dashboard ---
+async function refreshDashboard() {
+  try {
+    const s = await apiGet('/api/status');
+    const statusEl = document.getElementById('d-status');
+    if (s.running) {
+      statusEl.innerHTML = '<span class="status-dot running"></span>Running';
+      statusEl.className = 'card-value';
+    } else {
+      statusEl.innerHTML = '<span class="status-dot stopped"></span>Stopped';
+      statusEl.className = 'card-value';
+    }
+    document.getElementById('d-pid').textContent = s.pid || '-';
+    document.getElementById('d-agent').textContent = s.default_agent || '-';
+    document.getElementById('d-agents').textContent = s.agent_count;
+    document.getElementById('d-accounts').textContent = s.account_count;
+    document.getElementById('d-hub').textContent = s.hub_files;
+  } catch(e) {
+    toast('Failed to load status: ' + e.message, 'error');
+  }
+}
+
+// --- Agents ---
+let currentEditAgent = null;
+async function loadAgents() {
+  try {
+    const agents = await apiGet('/api/agents');
+    const cfg = await apiGet('/api/config');
+    const defaultAgent = cfg.default_agent;
+    const tbody = document.getElementById('agents-tbody');
+    tbody.innerHTML = '';
+    const names = Object.keys(agents).sort();
+    names.forEach(name => {
+      const a = agents[name];
+      const isDefault = name === defaultAgent;
+      const cmd = a.type === 'http' ? a.endpoint : a.command;
+      const aliases = (a.aliases || []).join(', ');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${esc(name)}</strong> ${isDefault ? '<span class="badge badge-default">default</span>' : ''}</td>
+        <td><span class="badge badge-${a.type}">${a.type.toUpperCase()}</span></td>
+        <td>${esc(a.model || '-')}</td>
+        <td class="code" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(cmd || '-')}</td>
+        <td>${esc(aliases || '-')}</td>
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-ghost btn-sm" onclick="editAgent('${esc(name)}')">Edit</button>
+            ${!isDefault ? `<button class="btn btn-ghost btn-sm" onclick="setDefault('${esc(name)}')">Set Default</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteAgent('${esc(name)}')">Del</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    toast('Failed to load agents: ' + e.message, 'error');
+  }
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function openAgentModal(agent) {
+  currentEditAgent = agent || null;
+  document.getElementById('agent-modal-title').textContent = agent ? 'Edit Agent' : 'Add Agent';
+  document.getElementById('agent-name').value = agent ? agent.name : '';
+  document.getElementById('agent-name').disabled = !!agent;
+  document.getElementById('agent-type').value = agent ? agent.type : 'http';
+  document.getElementById('agent-model').value = agent ? (agent.model || '') : '';
+  document.getElementById('agent-endpoint').value = agent ? (agent.endpoint || '') : '';
+  document.getElementById('agent-apikey').value = agent ? (agent.api_key || '') : '';
+  document.getElementById('agent-command').value = agent ? (agent.command || '') : '';
+  document.getElementById('agent-args').value = agent ? JSON.stringify(agent.args || []) : '';
+  document.getElementById('agent-cwd').value = agent ? (agent.cwd || '') : '';
+  document.getElementById('agent-system-prompt').value = agent ? (agent.system_prompt || '') : '';
+  document.getElementById('agent-aliases').value = agent ? (agent.aliases || []).join(', ') : '';
+  document.getElementById('agent-maxhistory').value = agent ? (agent.max_history || '') : '';
+  toggleAgentFields();
+  document.getElementById('agent-modal').classList.add('open');
+}
+
+function closeAgentModal() {
+  document.getElementById('agent-modal').classList.remove('open');
+  currentEditAgent = null;
+}
+
+function toggleAgentFields() {
+  const type = document.getElementById('agent-type').value;
+  document.getElementById('field-endpoint').style.display = type === 'http' ? '' : 'none';
+  document.getElementById('field-apikey').style.display = type === 'http' ? '' : 'none';
+  document.getElementById('field-command').style.display = type !== 'http' ? '' : 'none';
+  document.getElementById('field-args').style.display = type !== 'http' ? '' : 'none';
+  document.getElementById('field-cwd').style.display = type !== 'http' ? '' : 'none';
+  document.getElementById('field-maxhistory').style.display = type === 'http' ? '' : 'none';
+}
+
+async function editAgent(name) {
+  const agents = await apiGet('/api/agents');
+  if (agents[name]) {
+    openAgentModal({...agents[name], name});
+  }
+}
+
+async function setDefault(name) {
+  try {
+    await apiPut('/api/config', {default_agent: name});
+    toast('Default agent set to ' + name, 'success');
+    loadAgents();
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+async function deleteAgent(name) {
+  if (!confirm('Delete agent "' + name + '"?')) return;
+  try {
+    await apiDelete('/api/agents/' + encodeURIComponent(name));
+    toast('Agent deleted', 'success');
+    loadAgents();
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+async function saveAgent() {
+  const name = document.getElementById('agent-name').value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+  const type = document.getElementById('agent-type').value;
+  let args = [];
+  try { args = JSON.parse(document.getElementById('agent-args').value || '[]'); } catch(e) {}
+  const aliases = document.getElementById('agent-aliases').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const maxHist = parseInt(document.getElementById('agent-maxhistory').value) || 0;
+
+  const agentCfg = {
+    type,
+    model: document.getElementById('agent-model').value.trim() || '',
+    aliases,
+    system_prompt: document.getElementById('agent-system-prompt').value.trim() || '',
+  };
+  if (type === 'http') {
+    agentCfg.endpoint = document.getElementById('agent-endpoint').value.trim();
+    agentCfg.api_key = document.getElementById('agent-apikey').value.trim();
+    if (maxHist > 0) agentCfg.max_history = maxHist;
+  } else {
+    agentCfg.command = document.getElementById('agent-command').value.trim();
+    agentCfg.args = args;
+    agentCfg.cwd = document.getElementById('agent-cwd').value.trim() || '';
+  }
+
+  try {
+    if (currentEditAgent) {
+      await apiPut('/api/agents/' + encodeURIComponent(name), agentCfg);
+      toast('Agent updated', 'success');
+    } else {
+      await apiPost('/api/agents', {name, ...agentCfg});
+      toast('Agent added', 'success');
+    }
+    closeAgentModal();
+    loadAgents();
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+// --- Messages ---
+async function sendMessage() {
+  const to = document.getElementById('msg-to').value.trim();
+  const text = document.getElementById('msg-text').value.trim();
+  const media = document.getElementById('msg-media').value.trim();
+  if (!to) { toast('Recipient is required', 'error'); return; }
+  if (!text && !media) { toast('Text or media URL is required', 'error'); return; }
+  try {
+    await apiPost('/api/send', {to, text, media_url: media});
+    toast('Message sent', 'success');
+    document.getElementById('msg-text').value = '';
+    document.getElementById('msg-media').value = '';
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+// --- Hub ---
+async function loadHub() {
+  try {
+    const files = await apiGet('/api/hub');
+    const tbody = document.getElementById('hub-tbody');
+    tbody.innerHTML = '';
+    if (files.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">No hub files</td></tr>';
+      return;
+    }
+    files.forEach(f => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="code">${esc(f.name)}</td>
+        <td>${esc(f.mod_time)}</td>
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-ghost btn-sm" onclick="viewHubFile('${esc(f.name)}')">View</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteHubFile('${esc(f.name)}')">Del</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    toast('Failed to load hub: ' + e.message, 'error');
+  }
+}
+
+async function viewHubFile(name) {
+  try {
+    const r = await apiGet('/api/hub/' + encodeURIComponent(name));
+    document.getElementById('hub-modal-title').textContent = name;
+    document.getElementById('hub-modal-content').textContent = r.content;
+    document.getElementById('hub-modal').classList.add('open');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+function closeHubModal() { document.getElementById('hub-modal').classList.remove('open'); }
+
+async function deleteHubFile(name) {
+  if (!confirm('Delete "' + name + '"?')) return;
+  try {
+    await apiDelete('/api/hub/' + encodeURIComponent(name));
+    toast('File deleted', 'success');
+    loadHub();
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+// --- Todos ---
+async function loadTodos() {
+  try {
+    const items = await apiGet('/api/todos');
+    const tbody = document.getElementById('todos-tbody');
+    tbody.innerHTML = '';
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No todos</td></tr>';
+      return;
+    }
+    items.forEach(t => {
+      const due = t.due_time ? new Date(t.due_time * 1000).toLocaleString() : '-';
+      const statusBadge = t.status === 1 ? '<span class="badge badge-done">Done</span>' : '<span class="badge badge-pending">Pending</span>';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${t.id}</td>
+        <td>${esc(t.title)}</td>
+        <td>${esc(t.user_id)}</td>
+        <td>${due}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <div class="btn-group">
+            ${t.status === 0 ? `<button class="btn btn-success btn-sm" onclick="doneTodo(${t.id})">Done</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteTodo(${t.id})">Del</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    toast('Failed to load todos: ' + e.message, 'error');
+  }
+}
+
+function openAddTodo() {
+  const title = prompt('Todo title:');
+  if (!title) return;
+  apiPost('/api/todos', {title}).then(() => { toast('Todo added', 'success'); loadTodos(); })
+    .catch(e => toast('Failed: ' + e.message, 'error'));
+}
+
+async function doneTodo(id) {
+  try {
+    await apiPut('/api/todos/' + id + '/done', {});
+    toast('Todo completed', 'success');
+    loadTodos();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+async function deleteTodo(id) {
+  try {
+    await apiDelete('/api/todos/' + id);
+    toast('Todo deleted', 'success');
+    loadTodos();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// --- Timers ---
+let timerInterval = null;
+async function loadTimers() {
+  try {
+    const items = await apiGet('/api/timers');
+    const tbody = document.getElementById('timers-tbody');
+    tbody.innerHTML = '';
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No timers</td></tr>';
+      return;
+    }
+    items.forEach(t => {
+      const endTime = new Date(t.end_time * 1000);
+      const statusBadge = t.status === 0 ? '<span class="badge badge-running">Running</span>' :
+                          t.status === 1 ? '<span class="badge badge-done">Done</span>' :
+                          '<span class="badge badge-stopped">Cancelled</span>';
+      const tr = document.createElement('tr');
+      tr.dataset.endTime = t.end_time;
+      tr.dataset.status = t.status;
+      tr.innerHTML = `
+        <td>${t.id}</td>
+        <td>${esc(t.label)}</td>
+        <td class="timer-remaining" data-end="${t.end_time}">${t.status === 0 ? formatRemaining(t.end_time) : '-'}</td>
+        <td>${endTime.toLocaleString()}</td>
+        <td>${statusBadge}</td>
+        <td>
+          ${t.status === 0 ? `<button class="btn btn-danger btn-sm" onclick="cancelTimer(${t.id})">Cancel</button>` : ''}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    startTimerCountdown();
+  } catch(e) {
+    toast('Failed to load timers: ' + e.message, 'error');
+  }
+}
+
+function formatRemaining(endTime) {
+  const diff = endTime * 1000 - Date.now();
+  if (diff <= 0) return 'Expired';
+  const s = Math.floor(diff / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return h + 'h ' + m + 'm ' + sec + 's';
+  if (m > 0) return m + 'm ' + sec + 's';
+  return sec + 's';
+}
+
+function startTimerCountdown() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    document.querySelectorAll('.timer-remaining').forEach(el => {
+      const end = parseInt(el.dataset.end);
+      if (end) el.textContent = formatRemaining(end);
+    });
+  }, 1000);
+}
+
+function openAddTimer() {
+  const label = prompt('Timer label:');
+  if (!label) return;
+  const dur = prompt('Duration in seconds:');
+  if (!dur) return;
+  const d = parseInt(dur);
+  if (!d || d <= 0) { toast('Invalid duration', 'error'); return; }
+  apiPost('/api/timers', {duration: d, label}).then(() => { toast('Timer added', 'success'); loadTimers(); })
+    .catch(e => toast('Failed: ' + e.message, 'error'));
+}
+
+async function cancelTimer(id) {
+  try {
+    await apiPut('/api/timers/' + id + '/cancel', {});
+    toast('Timer cancelled', 'success');
+    loadTimers();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// --- Logs ---
+let logAutoRefresh = false;
+let logRefreshTimer = null;
+let allLogLines = [];
+
+async function loadLogs() {
+  try {
+    const lines = await apiGet('/api/logs?lines=300');
+    allLogLines = lines || [];
+    renderLogs();
+  } catch(e) {
+    document.getElementById('log-viewer').textContent = 'Failed to load logs: ' + e.message;
+  }
+}
+
+function renderLogs() {
+  const filter = document.getElementById('log-search').value.toLowerCase();
+  const viewer = document.getElementById('log-viewer');
+  const filtered = filter ? allLogLines.filter(l => l.toLowerCase().includes(filter)) : allLogLines;
+  viewer.innerHTML = filtered.map(l => {
+    let cls = '';
+    if (l.includes('[ERROR]') || l.includes('error') || l.includes('failed')) cls = 'log-err';
+    else if (l.includes('[api]') || l.includes('[agent]')) cls = 'log-info';
+    else if (/^\d{4}\//.test(l) || /^\d{2}:\d{2}/.test(l)) cls = 'log-time';
+    return `<div class="${cls}">${esc(l)}</div>`;
+  }).join('');
+  viewer.scrollTop = viewer.scrollHeight;
+}
+
+function filterLogs() { renderLogs(); }
+
+function toggleAutoRefresh() {
+  logAutoRefresh = !logAutoRefresh;
+  const btn = document.getElementById('log-auto-btn');
+  btn.textContent = 'Auto: ' + (logAutoRefresh ? 'ON' : 'OFF');
+  if (logAutoRefresh) {
+    logRefreshTimer = setInterval(loadLogs, 3000);
+  } else if (logRefreshTimer) {
+    clearInterval(logRefreshTimer);
+    logRefreshTimer = null;
+  }
+}
+
+// --- Init ---
+refreshDashboard();
+</script>
+</body>
+</html>

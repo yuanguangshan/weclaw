@@ -9,9 +9,10 @@ import (
 
 	"github.com/fastclaw-ai/weclaw/ilink"
 	"github.com/fastclaw-ai/weclaw/messaging"
+	"github.com/fastclaw-ai/weclaw/web"
 )
 
-// Server provides an HTTP API for sending messages.
+// Server provides an HTTP API for sending messages and admin management.
 type Server struct {
 	clients []*ilink.Client
 	addr    string
@@ -35,11 +36,51 @@ type SendRequest struct {
 // Run starts the HTTP server. Blocks until ctx is cancelled.
 func (s *Server) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
+
+	// Existing endpoints
 	mux.HandleFunc("/api/send", s.handleSend)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "ok")
 	})
+
+	// Admin API - Config & Agents
+	mux.HandleFunc("GET /api/config", s.handleGetConfig)
+	mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
+	mux.HandleFunc("GET /api/agents", s.handleListAgents)
+	mux.HandleFunc("POST /api/agents", s.handleAddAgent)
+	mux.HandleFunc("PUT /api/agents/{name}", s.handleUpdateAgent)
+	mux.HandleFunc("DELETE /api/agents/{name}", s.handleDeleteAgent)
+	mux.HandleFunc("POST /api/agents/detect", s.handleDetectAgents)
+
+	// Admin API - Status & Accounts
+	mux.HandleFunc("GET /api/status", s.handleStatus)
+	mux.HandleFunc("GET /api/accounts", s.handleListAccounts)
+	mux.HandleFunc("DELETE /api/accounts/{id}", s.handleDeleteAccount)
+
+	// Admin API - Logs
+	mux.HandleFunc("GET /api/logs", s.handleLogs)
+
+	// Admin API - Hub
+	mux.HandleFunc("GET /api/hub", s.handleListHub)
+	mux.HandleFunc("GET /api/hub/{name}", s.handleReadHubFile)
+	mux.HandleFunc("DELETE /api/hub/{name}", s.handleDeleteHubFile)
+	mux.HandleFunc("DELETE /api/hub/clear", s.handleClearHub)
+
+	// Admin API - Todos
+	mux.HandleFunc("GET /api/todos", s.handleListTodos)
+	mux.HandleFunc("POST /api/todos", s.handleAddTodo)
+	mux.HandleFunc("PUT /api/todos/{id}/done", s.handleDoneTodo)
+	mux.HandleFunc("DELETE /api/todos/{id}", s.handleDeleteTodo)
+
+	// Admin API - Timers
+	mux.HandleFunc("GET /api/timers", s.handleListTimers)
+	mux.HandleFunc("POST /api/timers", s.handleAddTimer)
+	mux.HandleFunc("PUT /api/timers/{id}/cancel", s.handleCancelTimer)
+
+	// Admin UI
+	mux.HandleFunc("/admin", s.handleAdminUI)
+	mux.HandleFunc("/admin/", s.handleAdminUI)
 
 	srv := &http.Server{Addr: s.addr, Handler: mux}
 
@@ -53,6 +94,11 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Server) handleAdminUI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(web.AdminHTML)
 }
 
 func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {

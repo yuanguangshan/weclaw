@@ -2119,6 +2119,8 @@ func (h *Handler) handleDebate(ctx context.Context, client *ilink.Client, msg il
 func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, proAgent, conAgent, topic, clientID string) {
 	const rounds = 3
 	var prevConReply string
+	var allProReplies []string
+	var allConReplies []string
 
 	// Helper: send a standalone message (no contextToken dependency)
 	sendMsg := func(text string) {
@@ -2146,9 +2148,6 @@ func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink
 	sendMsg(fmt.Sprintf("🎭 **辩论: %s**\n正方: %s | 反方: %s", topic, proAgent, conAgent))
 
 	for round := 1; round <= rounds; round++ {
-		// Send progress notification
-		sendMsg(fmt.Sprintf("🔄 第 %d/%d 轮辩论进行中...", round, rounds))
-
 		// Build pro prompt
 		var proPrompt string
 		if round == 1 {
@@ -2172,19 +2171,13 @@ func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink
 		proAg, proErr := h.getAgent(ctx, proAgent)
 		var proReply string
 		if proErr != nil {
-			proText := fmt.Sprintf("[正方 %s] 出错: %v", proAgent, proErr)
-			log.Printf("[debate] %s", proText)
-			sendMsg(proText)
+			log.Printf("[debate] pro round %d error: %v", round, proErr)
 		} else {
 			proReply, proErr = proAg.Chat(ctx, msg.FromUserID+"_debate_pro", proPrompt)
 			if proErr != nil {
-				proText := fmt.Sprintf("[正方 %s] 出错: %v", proAgent, proErr)
-				log.Printf("[debate] %s", proText)
-				sendMsg(proText)
+				log.Printf("[debate] pro round %d error: %v", round, proErr)
 			} else {
-				proText := fmt.Sprintf("📢 **第 %d 轮 正方 (%s)**\n\n%s", round, proAgent, proReply)
 				log.Printf("[debate] pro round %d: %s", round, truncate(proReply, 80))
-				sendMsg(proText)
 			}
 		}
 
@@ -2216,32 +2209,71 @@ func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink
 		conAg, conErr := h.getAgent(ctx, conAgent)
 		var conReply string
 		if conErr != nil {
-			conText := fmt.Sprintf("[反方 %s] 出错: %v", conAgent, conErr)
-			log.Printf("[debate] %s", conText)
-			sendMsg(conText)
+			log.Printf("[debate] con round %d error: %v", round, conErr)
 		} else {
 			conReply, conErr = conAg.Chat(ctx, msg.FromUserID+"_debate_con", conPrompt)
 			if conErr != nil {
-				conText := fmt.Sprintf("[反方 %s] 出错: %v", conAgent, conErr)
-				log.Printf("[debate] %s", conText)
-				sendMsg(conText)
+				log.Printf("[debate] con round %d error: %v", round, conErr)
 			} else {
-				conText := fmt.Sprintf("📢 **第 %d 轮 反方 (%s)**\n\n%s", round, conAgent, conReply)
 				log.Printf("[debate] con round %d: %s", round, truncate(conReply, 80))
-				sendMsg(conText)
 			}
 		}
 
-		// Save con reply for next round's pro prompt
+		// Save replies
 		prevConReply = conReply
+		allProReplies = append(allProReplies, proReply)
+		allConReplies = append(allConReplies, conReply)
 
-		// Small delay between rounds
-		time.Sleep(2 * time.Second)
+		// Combine pro + con into one message
+		var roundText string
+		if proReply != "" && conReply != "" {
+			roundText = fmt.Sprintf("📢 **第 %d/%d 轮**\n\n🟢 **正方 (%s):** %s\n\n🔴 **反方 (%s):** %s", round, rounds, proAgent, proReply, conAgent, conReply)
+		} else if proReply != "" {
+			roundText = fmt.Sprintf("📢 **第 %d/%d 轮**\n\n🟢 **正方 (%s):** %s\n\n🔴 **反方 (%s):** [出错]", round, rounds, proAgent, proReply, conAgent)
+		} else {
+			roundText = fmt.Sprintf("📢 **第 %d/%d 轮**\n\n🟢 **正方 (%s):** [出错]", round, rounds, proAgent)
+		}
+		sendMsg(roundText)
+		time.Sleep(3 * time.Second)
 	}
 
-	// Send completion notice
-	time.Sleep(3 * time.Second)
-	sendMsg("✅ 辩论结束！使用 /podcast 可以将辩论内容生成播客。")
+			time.Sleep(5 * time.Second)
+		sendMsg("✅ 辩论结束！正在整理完整文档...")
+		time.Sleep(3 * time.Second)
+
+	// Build full markdown document
+	var md strings.Builder
+	md.WriteString(fmt.Sprintf("# 🎭 辩论记录：%s\n\n", topic))
+	md.WriteString(fmt.Sprintf("> 正方：**%s** | 反方：**%s**\n\n---\n\n", proAgent, conAgent))
+	for i := 0; i < rounds; i++ {
+		md.WriteString(fmt.Sprintf("## 第 %d 轮\n\n", i+1))
+		if i < len(allProReplies) && allProReplies[i] != "" {
+			md.WriteString(fmt.Sprintf("### 🟢 正方 (%s)\n\n%s\n\n", proAgent, allProReplies[i]))
+		}
+		if i < len(allConReplies) && allConReplies[i] != "" {
+			md.WriteString(fmt.Sprintf("### 🔴 反方 (%s)\n\n%s\n\n", conAgent, allConReplies[i]))
+		}
+		md.WriteString("---\n\n")
+	}
+
+	// Send markdown doc (split if too long, split on rune boundary)
+	docText := md.String()
+	runes := []rune(docText)
+	const maxRuneLen = 3500
+	if len(runes) <= maxRuneLen {
+		sendMsg(docText)
+	} else {
+		for i := 0; i < len(runes); i += maxRuneLen {
+			end := i + maxRuneLen
+			if end > len(runes) {
+				end = len(runes)
+			}
+			sendMsg(string(runes[i:end]))
+			time.Sleep(3 * time.Second)
+		}
+	}
+
+			sendMsg("💡 使用 /podcast 可以将辩论内容生成播客.")
 }
 
 // handleShell processes /sh or /$ command to execute shell commands.

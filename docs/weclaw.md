@@ -1,10 +1,10 @@
 # Project Documentation
 
-- **Generated at:** 2026-04-04 02:45:21
+- **Generated at:** 2026-04-05 11:26:19
 - **Root Dir:** `.`
 - **File Count:** 37
-- **Total Lines:** 9104
-- **Total Size:** 251.64 KB
+- **Total Lines:** 9450
+- **Total Size:** 262.92 KB
 
 <a name="toc"></a>
 ## 📂 扫描目录
@@ -38,8 +38,8 @@
 - [messaging/attachment.go](#file-messaging-attachment.go) (127 lines, 2.90 KB)
 - [messaging/attachment_test.go](#file-messaging-attachment_test.go) (100 lines, 2.96 KB)
 - [messaging/cdn.go](#file-messaging-cdn.go) (232 lines, 6.56 KB)
-- [messaging/handler.go](#file-messaging-handler.go) (2416 lines, 78.41 KB)
-- [messaging/handler_test.go](#file-messaging-handler_test.go) (140 lines, 3.60 KB)
+- [messaging/handler.go](#file-messaging-handler.go) (2669 lines, 86.90 KB)
+- [messaging/handler_test.go](#file-messaging-handler_test.go) (233 lines, 6.39 KB)
 - [messaging/linkhoard.go](#file-messaging-linkhoard.go) (326 lines, 8.66 KB)
 - [messaging/markdown.go](#file-messaging-markdown.go) (103 lines, 3.01 KB)
 - [messaging/media.go](#file-messaging-media.go) (213 lines, 5.31 KB)
@@ -6114,21 +6114,21 @@ type AgentMeta struct {
 
 // Handler processes incoming WeChat messages and dispatches replies.
 type Handler struct {
-	mu            sync.RWMutex
-	defaultName   string
-	agents        map[string]agent.Agent // name -> running agent
-	agentMetas    []AgentMeta            // all configured agents (for /status)
-	agentWorkDirs map[string]string      // agent name -> configured/runtime cwd
-	customAliases map[string]string      // custom alias -> agent name (from config)
-	factory       AgentFactory
-	saveDefault   SaveDefaultFunc
-	hub           *hub.Hub // shared context for cross-agent collaboration
-	contextTokens sync.Map   // map[userID]contextToken
-	saveDir       string     // directory to save images/files to
-	seenMsgs      sync.Map   // map[int64]time.Time — dedup by message_id
-	progressCtx   *progressContext // current request context for progress notifications
-	lastReplies   sync.Map   // map[userID]string — last agent reply per user (for /save without message)
-	shellModeStates sync.Map // map[userID]*shellModeState — per-user shell mode state
+	mu              sync.RWMutex
+	defaultName     string
+	agents          map[string]agent.Agent // name -> running agent
+	agentMetas      []AgentMeta            // all configured agents (for /status)
+	agentWorkDirs   map[string]string      // agent name -> configured/runtime cwd
+	customAliases   map[string]string      // custom alias -> agent name (from config)
+	factory         AgentFactory
+	saveDefault     SaveDefaultFunc
+	hub             *hub.Hub         // shared context for cross-agent collaboration
+	contextTokens   sync.Map         // map[userID]contextToken
+	saveDir         string           // directory to save images/files to
+	seenMsgs        sync.Map         // map[int64]time.Time — dedup by message_id
+	progressCtx     *progressContext // current request context for progress notifications
+	lastReplies     sync.Map         // map[userID]string — last agent reply per user (for /save without message)
+	shellModeStates sync.Map         // map[userID]*shellModeState — per-user shell mode state
 }
 
 // progressContext holds context for sending progress notifications.
@@ -6312,7 +6312,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -6564,6 +6564,14 @@ handleBuiltinCommand:
 		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/podcast") {
 		reply := h.handlePodcast(ctx, client, msg, effectiveTrimmed, clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/debate") {
+		reply := h.handleDebate(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -7083,11 +7091,12 @@ func (h *Handler) handleSave(ctx context.Context, client *ilink.Client, msg ilin
 
 // handleHub processes the /hub command: reads shared context and optionally sends to agent.
 // Usage:
-//   /hub {message}              — read all shared files, inject context, send to default agent
-//   /hub {filename} {msg}       — read specific file, inject, send to agent
-//   /hub {filename} {msg}       — if filename ends with .md, save reply to hub
-//   /hub ls                     — list files in hub
-//   /hub clear                  — clear all hub files
+//
+//	/hub {message}              — read all shared files, inject context, send to default agent
+//	/hub {filename} {msg}       — read specific file, inject, send to agent
+//	/hub {filename} {msg}       — if filename ends with .md, save reply to hub
+//	/hub ls                     — list files in hub
+//	/hub clear                  — clear all hub files
 func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
 	// Parse: /hub [filename] [message] | /hub ls | /hub clear
 	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/hub"))
@@ -7306,9 +7315,10 @@ func (h *Handler) handleHub(ctx context.Context, client *ilink.Client, msg ilink
 
 // handlePipe 实现自动链式调用: 先将消息发送给默认 agent，然后将回复保存并发送给目标 agent
 // 支持引用语法：
-//   /hub pipe <agent> @<编号> <消息> - 直接使用 Hub 中编号对应的文件作为源内容
-//   /hub pipe <agent> @-1 <消息> - 使用最新文件（-1=最新，-2=第二新）
-//   /hub pipe <agent> @<文件名> <消息> - 直接使用文件名引用
+//
+//	/hub pipe <agent> @<编号> <消息> - 直接使用 Hub 中编号对应的文件作为源内容
+//	/hub pipe <agent> @-1 <消息> - 使用最新文件（-1=最新，-2=第二新）
+//	/hub pipe <agent> @<文件名> <消息> - 直接使用文件名引用
 func (h *Handler) handlePipe(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, targetAgent, message, clientID string) string {
 	log.Printf("[hub/pipe] starting pipe: target=%s, message=%q", targetAgent, truncate(message, 50))
 
@@ -7583,6 +7593,16 @@ func buildHelpText() string {
   /new /clear      新会话
   /cwd /path       切换工作目录
   /info /help      信息 / 帮助
+
+🎙️ 播客生成
+  /podcast         使用上一条回复生成播客
+  /podcast <内容>   指定内容生成播客
+  （无论当前处于哪个 agent，均会自动拦截并发送）
+
+🎭 多 Agent 辩论
+  /debate <话题>              默认两个 agent 辩论
+  /debate @a @b <话题>        指定 agent 辩论
+  示例: /debate AI 会取代人类决策吗
 
 🖥️ 终端模拟
   /sh              进入命令行模式（支持持久化目录、免前缀）
@@ -8092,6 +8112,239 @@ func (h *Handler) handlePodcast(ctx context.Context, client *ilink.Client, msg i
 	}
 
 	return "✅ 已加入 NAS 直读队列，请稍后查看播客。"
+}
+
+// handleDebate orchestrates a multi-round debate between two agents on a topic.
+// Usage:
+//
+//	/debate <话题>                  — 使用默认两个 agent 辩论
+//	/debate @agent1 @agent2 <话题>  — 指定 agent 辩论
+func (h *Handler) handleDebate(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/debate"))
+	if rest == "" {
+		return "用法:\n/debate <话题> — 使用默认 agent 辩论\n/debate @agent1 @agent2 <话题> — 指定 agent 辩论\n\n示例:\n/debate AI 会取代人类决策吗\n/debate @cc @gm 远程办公是否更高效"
+	}
+
+	// Parse optional agent prefixes from rest
+	parsedNames, parsedMsg := h.parseCommand(rest)
+	topic := strings.TrimSpace(parsedMsg)
+
+	// If no topic after parsing, the entire rest is the topic
+	if topic == "" {
+		topic = rest
+		parsedNames = nil
+	}
+
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		return "辩论话题不能为空。示例: /debate AI 会取代人类决策吗"
+	}
+
+	// Determine debate participants
+	var agentNames []string
+	if len(parsedNames) >= 2 {
+		// User specified agents
+		agentNames = parsedNames[:2] // Take first two only
+	} else {
+		// Use default agents: try to get first two configured agents
+		h.mu.RLock()
+		metas := h.agentMetas
+		h.mu.RUnlock()
+
+		if len(metas) >= 2 {
+			agentNames = []string{metas[0].Name, metas[1].Name}
+		} else {
+			// Fallback: use default + try to find any other agent
+			defaultAg := h.getDefaultAgent()
+			if defaultAg == nil {
+				return "❌ 默认 agent 未就绪，请稍后重试。"
+			}
+			// Try common agents
+			candidates := []string{"claude", "codex", "gemini", "deepseek", "qwen"}
+			for _, c := range candidates {
+				if c != h.defaultName {
+					agentNames = []string{h.defaultName, c}
+					break
+				}
+			}
+			if len(agentNames) < 2 {
+				return "❌ 可用 agent 不足，至少需要两个 agent 才能辩论。"
+			}
+		}
+	}
+
+	// Validate agents are available
+	for _, name := range agentNames {
+		if _, err := h.getAgent(ctx, name); err != nil {
+			return fmt.Sprintf("❌ agent %q 不可用: %v", name, err)
+		}
+	}
+
+	// Start debate asynchronously
+	go h.runDebate(ctx, client, msg, agentNames[0], agentNames[1], topic, clientID)
+
+	return fmt.Sprintf("🎭 辩论开始！\n话题: %s\n正方: %s\n反方: %s\n\n辩论进行中，结果将陆续发送给你...", topic, agentNames[0], agentNames[1])
+}
+
+// runDebate executes the debate rounds and sends results to the user.
+func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, proAgent, conAgent, topic, clientID string) {
+	const rounds = 3
+	var prevConReply string
+	var allProReplies []string
+	var allConReplies []string
+
+	// Helper: send a standalone message (no contextToken dependency)
+	sendMsg := func(text string) {
+		cid := NewClientID()
+		plainText := MarkdownToPlainText(text)
+		req := &ilink.SendMessageRequest{
+			Msg: ilink.SendMsg{
+				FromUserID:   client.BotID(),
+				ToUserID:     msg.FromUserID,
+				ClientID:     cid,
+				MessageType:  ilink.MessageTypeBot,
+				MessageState: ilink.MessageStateFinish,
+				ItemList: []ilink.MessageItem{
+					{Type: ilink.ItemTypeText, TextItem: &ilink.TextItem{Text: plainText}},
+				},
+			},
+		}
+		resp, err := client.SendMessage(ctx, req)
+		if err != nil || resp.Ret != 0 {
+			log.Printf("[debate] failed to send: err=%v ret=%d", err, resp.Ret)
+		}
+	}
+
+	// Send debate header
+	sendMsg(fmt.Sprintf("🎭 **辩论: %s**\n正方: %s | 反方: %s", topic, proAgent, conAgent))
+
+	for round := 1; round <= rounds; round++ {
+		// Build pro prompt
+		var proPrompt string
+		if round == 1 {
+			proPrompt = fmt.Sprintf(`你现在是辩论赛的正方。请针对以下话题，提出你的核心论点和论据（3-5个要点），立场鲜明地展开论述。
+
+话题: %s
+你的立场: 正方（支持/赞同）
+
+请用清晰的逻辑、具体的例子来论证。控制在 500 字以内。`, topic)
+		} else {
+			proPrompt = fmt.Sprintf(`辩论继续。以下是反方上一轮的发言。请针对反方的论点进行回应和反驳，并进一步强化你的观点。
+
+话题: %s
+反方的观点:
+%s
+
+请继续你的论述。控制在 400 字以内。`, topic, prevConReply)
+		}
+
+		// Pro speaks
+		proAg, proErr := h.getAgent(ctx, proAgent)
+		var proReply string
+		if proErr != nil {
+			log.Printf("[debate] pro round %d error: %v", round, proErr)
+		} else {
+			proReply, proErr = proAg.Chat(ctx, msg.FromUserID+"_debate_pro", proPrompt)
+			if proErr != nil {
+				log.Printf("[debate] pro round %d error: %v", round, proErr)
+			} else {
+				log.Printf("[debate] pro round %d: %s", round, truncate(proReply, 80))
+			}
+		}
+
+		// Build con prompt with pro's reply
+		var conPrompt string
+		if proReply != "" {
+			if round == 1 {
+				conPrompt = fmt.Sprintf(`你现在是辩论赛的反方。以下是正方的观点，请逐一反驳，并提出你自己的核心论点。
+
+话题: %s
+正方的观点:
+%s
+
+你的立场: 反方（反对/不赞同）
+
+请有理有据地反驳并提出自己的观点。控制在 500 字以内。`, topic, proReply)
+			} else {
+				conPrompt = fmt.Sprintf(`辩论继续。以下是正方上一轮的发言。请针对正方的论点进行回应和反驳，并进一步强化你的观点。
+
+话题: %s
+正方的观点:
+%s
+
+请继续你的论述。控制在 400 字以内。`, topic, proReply)
+			}
+		}
+
+		// Con speaks
+		conAg, conErr := h.getAgent(ctx, conAgent)
+		var conReply string
+		if conErr != nil {
+			log.Printf("[debate] con round %d error: %v", round, conErr)
+		} else {
+			conReply, conErr = conAg.Chat(ctx, msg.FromUserID+"_debate_con", conPrompt)
+			if conErr != nil {
+				log.Printf("[debate] con round %d error: %v", round, conErr)
+			} else {
+				log.Printf("[debate] con round %d: %s", round, truncate(conReply, 80))
+			}
+		}
+
+		// Save replies
+		prevConReply = conReply
+		allProReplies = append(allProReplies, proReply)
+		allConReplies = append(allConReplies, conReply)
+
+		// Combine pro + con into one message
+		var roundText string
+		if proReply != "" && conReply != "" {
+			roundText = fmt.Sprintf("📢 **第 %d/%d 轮**\n\n🟢 **正方 (%s):** %s\n\n🔴 **反方 (%s):** %s", round, rounds, proAgent, proReply, conAgent, conReply)
+		} else if proReply != "" {
+			roundText = fmt.Sprintf("📢 **第 %d/%d 轮**\n\n🟢 **正方 (%s):** %s\n\n🔴 **反方 (%s):** [出错]", round, rounds, proAgent, proReply, conAgent)
+		} else {
+			roundText = fmt.Sprintf("📢 **第 %d/%d 轮**\n\n🟢 **正方 (%s):** [出错]", round, rounds, proAgent)
+		}
+		sendMsg(roundText)
+		time.Sleep(3 * time.Second)
+	}
+
+			time.Sleep(5 * time.Second)
+		sendMsg("✅ 辩论结束！正在整理完整文档...")
+		time.Sleep(3 * time.Second)
+
+	// Build full markdown document
+	var md strings.Builder
+	md.WriteString(fmt.Sprintf("# 🎭 辩论记录：%s\n\n", topic))
+	md.WriteString(fmt.Sprintf("> 正方：**%s** | 反方：**%s**\n\n---\n\n", proAgent, conAgent))
+	for i := 0; i < rounds; i++ {
+		md.WriteString(fmt.Sprintf("## 第 %d 轮\n\n", i+1))
+		if i < len(allProReplies) && allProReplies[i] != "" {
+			md.WriteString(fmt.Sprintf("### 🟢 正方 (%s)\n\n%s\n\n", proAgent, allProReplies[i]))
+		}
+		if i < len(allConReplies) && allConReplies[i] != "" {
+			md.WriteString(fmt.Sprintf("### 🔴 反方 (%s)\n\n%s\n\n", conAgent, allConReplies[i]))
+		}
+		md.WriteString("---\n\n")
+	}
+
+	// Send markdown doc (split if too long, split on rune boundary)
+	docText := md.String()
+	runes := []rune(docText)
+	const maxRuneLen = 3500
+	if len(runes) <= maxRuneLen {
+		sendMsg(docText)
+	} else {
+		for i := 0; i < len(runes); i += maxRuneLen {
+			end := i + maxRuneLen
+			if end > len(runes) {
+				end = len(runes)
+			}
+			sendMsg(string(runes[i:end]))
+			time.Sleep(3 * time.Second)
+		}
+	}
+
+			sendMsg("💡 使用 /podcast 可以将辩论内容生成播客.")
 }
 
 // handleShell processes /sh or /$ command to execute shell commands.
@@ -8632,6 +8885,99 @@ func TestBuildHelpText(t *testing.T) {
 	}
 	if !strings.Contains(text, "/help") {
 		t.Error("help text should mention /help")
+	}
+}
+
+func TestParseCommand_PodcastBuiltin(t *testing.T) {
+	h := newTestHandler()
+
+	// Test /podcast alone - should not be parsed as agent name
+	names, msg := h.parseCommand("/podcast some text")
+	if len(names) != 0 {
+		t.Errorf("expected no agent names, got %v", names)
+	}
+	if msg != "/podcast some text" {
+		t.Errorf("expected '/podcast some text', got %q", msg)
+	}
+
+	// Test /podcast alone
+	names, msg = h.parseCommand("/podcast")
+	if len(names) != 0 {
+		t.Errorf("expected no agent names, got %v", names)
+	}
+	if msg != "/podcast" {
+		t.Errorf("expected '/podcast', got %q", msg)
+	}
+}
+
+func TestParseCommand_PodcastWithAgentPrefix(t *testing.T) {
+	h := newTestHandler()
+
+	// Test @cc /podcast - should intercept /podcast and not treat as agent command
+	names, msg := h.parseCommand("@cc /podcast some text")
+	// The parser should recognize @cc as agent, but then /podcast as builtin command
+	// So it returns the original text starting from /podcast
+	if len(names) != 1 || names[0] != "claude" {
+		t.Errorf("expected [claude], got %v", names)
+	}
+	if msg != "/podcast some text" {
+		t.Errorf("expected '/podcast some text', got %q", msg)
+	}
+
+	// Test /claude /podcast - similar behavior
+	names, msg = h.parseCommand("/claude /podcast some text")
+	if len(names) != 1 || names[0] != "claude" {
+		t.Errorf("expected [claude], got %v", names)
+	}
+	if msg != "/podcast some text" {
+		t.Errorf("expected '/podcast some text', got %q", msg)
+	}
+}
+
+func TestIsBuiltinCommand_Podcast(t *testing.T) {
+	// Test /podcast variants
+	if !isBuiltinCommand("/podcast") {
+		t.Error("/podcast should be a builtin command")
+	}
+	if !isBuiltinCommand("/podcast some text") {
+		t.Error("/podcast with text should be a builtin command")
+	}
+	if isBuiltinCommand("/podcasting") {
+		t.Error("/podcasting should NOT be a builtin command")
+	}
+}
+
+func TestParseCommand_DebateBuiltin(t *testing.T) {
+	h := newTestHandler()
+
+	// Test /debate alone - should not be parsed as agent name
+	names, msg := h.parseCommand("/debate AI 会取代人类吗")
+	if len(names) != 0 {
+		t.Errorf("expected no agent names, got %v", names)
+	}
+	if msg != "/debate AI 会取代人类吗" {
+		t.Errorf("expected '/debate AI 会取代人类吗', got %q", msg)
+	}
+
+	// Test /debate with agent prefix
+	names, msg = h.parseCommand("@cc /debate AI 会取代人类吗")
+	if len(names) != 1 || names[0] != "claude" {
+		t.Errorf("expected [claude], got %v", names)
+	}
+	if msg != "/debate AI 会取代人类吗" {
+		t.Errorf("expected '/debate AI 会取代人类吗', got %q", msg)
+	}
+}
+
+func TestIsBuiltinCommand_Debate(t *testing.T) {
+	if !isBuiltinCommand("/debate") {
+		t.Error("/debate should be a builtin command")
+	}
+	if !isBuiltinCommand("/debate some topic") {
+		t.Error("/debate with text should be a builtin command")
+	}
+	if isBuiltinCommand("/debating") {
+		t.Error("/debating should NOT be a builtin command")
 	}
 }
 
@@ -9488,5 +9834,5 @@ func truncate(s string, n int) string {
 ---
 ### 📊 最终统计汇总
 - **文件总数:** 37
-- **代码总行数:** 9104
-- **物理总大小:** 251.64 KB
+- **代码总行数:** 9450
+- **物理总大小:** 262.92 KB

@@ -58,6 +58,14 @@ func (s *Server) Run(ctx context.Context) error {
 	mux.HandleFunc("GET /api/accounts", s.handleListAccounts)
 	mux.HandleFunc("DELETE /api/accounts/{id}", s.handleDeleteAccount)
 
+	// Admin API - Login
+	mux.HandleFunc("GET /api/login/qrcode", s.handleLoginQRCode)
+	mux.HandleFunc("GET /api/login/status", s.handleLoginStatus)
+
+	// Admin API - Service Control
+	mux.HandleFunc("POST /api/service/restart", s.handleServiceRestart)
+	mux.HandleFunc("POST /api/service/update", s.handleServiceUpdate)
+
 	// Admin API - Logs
 	mux.HandleFunc("GET /api/logs", s.handleLogs)
 

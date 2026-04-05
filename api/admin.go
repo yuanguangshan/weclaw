@@ -2,12 +2,14 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -681,6 +683,106 @@ func (s *Server) handleCancelTimer(w http.ResponseWriter, r *http.Request) {
 	data, _ = json.MarshalIndent(items, "", "  ")
 	os.WriteFile(path, data, 0644)
 	writeJSON(w, map[string]string{"status": "ok"})
+}
+
+// --- Login ---
+
+func (s *Server) handleLoginQRCode(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	qr, err := ilink.FetchQRCode(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "fetch QR failed: "+err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{
+		"qrcode": qr.QRCode,
+		"url":    qr.QRCodeImgContent,
+	})
+}
+
+func (s *Server) handleLoginStatus(w http.ResponseWriter, r *http.Request) {
+	qrcode := r.URL.Query().Get("qrcode")
+	if qrcode == "" {
+		writeError(w, http.StatusBadRequest, "qrcode parameter required")
+		return
+	}
+
+	// Single poll (not infinite loop like CLI) — frontend will repeat
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	c := ilink.NewUnauthenticatedClient()
+
+	var resp ilink.QRStatusResponse
+	if err := c.DoGet(ctx, "https://ilinkai.weixin.qq.com/ilink/bot/get_qrcode_status?qrcode="+qrcode, &resp); err != nil {
+		writeJSON(w, map[string]string{"status": "error", "error": err.Error()})
+		return
+	}
+
+	result := map[string]interface{}{"status": resp.Status}
+	if resp.Status == "confirmed" && resp.BotToken != "" {
+		creds := &ilink.Credentials{
+			BotToken:    resp.BotToken,
+			ILinkBotID:  resp.ILinkBotID,
+			BaseURL:     resp.BaseURL,
+			ILinkUserID: resp.ILinkUserID,
+		}
+		if err := ilink.SaveCredentials(creds); err != nil {
+			writeError(w, http.StatusInternalServerError, "save failed: "+err.Error())
+			return
+		}
+		result["bot_id"] = creds.ILinkBotID
+		log.Printf("[admin] new account logged in: %s", creds.ILinkBotID)
+	}
+	writeJSON(w, result)
+}
+
+// --- Service Control ---
+
+func (s *Server) handleServiceRestart(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"status": "restarting"})
+	// Flush response before restart kills us
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		exec.Command("systemctl", "restart", "weclaw").Run()
+	}()
+}
+
+func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request) {
+	projectDir := "/home/nanobot/.nanobot/weclaw"
+
+	// Build
+	cmd := exec.Command("go", "build", "-o", filepath.Join(projectDir, "weclaw"), projectDir)
+	cmd.Dir = projectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "build failed: "+string(output))
+		return
+	}
+
+	// Copy
+	src := filepath.Join(projectDir, "weclaw")
+	dst := "/usr/local/bin/weclaw"
+	if err := CopyFile(dst, src); err != nil {
+		writeError(w, http.StatusInternalServerError, "copy failed: "+err.Error())
+		return
+	}
+	// Make executable
+	os.Chmod(dst, 0755)
+
+	writeJSON(w, map[string]string{"status": "built, restarting"})
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		exec.Command("systemctl", "restart", "weclaw").Run()
+	}()
 }
 
 // --- Helpers ---

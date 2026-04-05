@@ -241,6 +241,40 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
   font-size: 11px;
   font-weight: 600;
 }
+
+/* Action Grid */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 12px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+.action-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.action-btn:active { transform: translateY(0); }
+.action-icon { font-size: 26px; line-height: 1; }
+.action-label { font-size: 13px; }
+.action-blue { background: #2563eb; }
+.action-blue:hover { background: #1d4ed8; }
+.action-orange { background: #ea580c; }
+.action-orange:hover { background: #c2410c; }
+.action-green { background: #059669; }
+.action-green:hover { background: #047857; }
+.action-gray { background: #475569; }
+.action-gray:hover { background: #334155; }
 .badge-acp { background: #2d1b69; color: #a78bfa; }
 .badge-cli { background: #1b4332; color: #6ee7b7; }
 .badge-http { background: #1e3a5f; color: #7dd3fc; }
@@ -344,6 +378,9 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
     <div class="nav-item" data-page="logs">
       <i class="icon">&#128196;</i><span>Logs</span>
     </div>
+    <div class="nav-item" data-page="login">
+      <i class="icon">&#128274;</i><span>Login</span>
+    </div>
   </div>
 </div>
 
@@ -386,10 +423,31 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
     </div>
     <div class="card">
       <div class="card-title">Quick Actions</div>
-      <div class="btn-group" style="margin-top:8px;">
-        <button class="btn btn-primary btn-sm" onclick="apiPost('/api/agents/detect',null).then(r=>{toast('Detection complete: '+r.new_agents+' new agents');refreshDashboard()})">Detect Agents</button>
-        <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()">Refresh Status</button>
+      <div class="action-grid" style="margin-top:8px;">
+        <button class="action-btn action-blue" onclick="apiPost('/api/agents/detect',null).then(r=>{toast('Detection complete: '+r.new_agents+' new agents');refreshDashboard()})">
+          <span class="action-icon">&#9881;</span>
+          <span class="action-label">Detect Agents</span>
+        </button>
+        <button class="action-btn action-orange" onclick="serviceRestart()">
+          <span class="action-icon">&#8635;</span>
+          <span class="action-label">Restart</span>
+        </button>
+        <button class="action-btn action-green" onclick="serviceUpdate()">
+          <span class="action-icon">&#9889;</span>
+          <span class="action-label">Build &amp; Update</span>
+        </button>
+        <button class="action-btn action-gray" onclick="refreshDashboard()">
+          <span class="action-icon">&#8634;</span>
+          <span class="action-label">Refresh</span>
+        </button>
       </div>
+    </div>
+    <div class="card" style="margin-top:4px;">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Recent Logs</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadDashboardLogs()" style="padding:2px 8px;font-size:11px;">Refresh</button>
+      </div>
+      <div class="log-viewer" id="dashboard-logs" style="max-height:300px;margin-top:8px;">Loading...</div>
     </div>
   </div>
 
@@ -513,6 +571,37 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
       <input id="log-search" placeholder="Filter logs..." oninput="filterLogs()">
     </div>
     <div class="log-viewer" id="log-viewer">Loading...</div>
+  </div>
+
+  <!-- Login -->
+  <div id="page-login" class="page">
+    <div class="page-header">
+      <h2>WeChat Login</h2>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="loadAccounts()">Refresh</button>
+      </div>
+    </div>
+    <div class="card" style="max-width:400px;margin-bottom:20px;">
+      <div style="text-align:center;padding:20px 0;">
+        <div id="login-qr-area" style="display:none;">
+          <img id="login-qr-img" style="width:200px;height:200px;border-radius:8px;border:1px solid var(--border);" alt="QR Code">
+          <p id="login-status-text" style="margin-top:12px;color:var(--text-secondary);font-size:14px;">Waiting for scan...</p>
+        </div>
+        <div id="login-no-qr">
+          <p style="color:var(--text-muted);margin-bottom:16px;">Click to get WeChat QR code for login</p>
+          <button class="btn btn-primary" onclick="startLogin()">Get QR Code</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Accounts</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Bot ID</th><th>Actions</th></tr></thead>
+          <tbody id="accounts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -672,6 +761,7 @@ const pageLoaders = {
   todos: loadTodos,
   timers: loadTimers,
   logs: loadLogs,
+  login: loadAccounts,
 };
 
 // --- Dashboard ---
@@ -693,6 +783,27 @@ async function refreshDashboard() {
     document.getElementById('d-hub').textContent = s.hub_files;
   } catch(e) {
     toast('Failed to load status: ' + e.message, 'error');
+  }
+  loadDashboardLogs();
+}
+
+async function loadDashboardLogs() {
+  try {
+    const lines = await apiGet('/api/logs?lines=50');
+    const viewer = document.getElementById('dashboard-logs');
+    if (!lines || lines.length === 0) {
+      viewer.textContent = 'No logs available';
+      return;
+    }
+    viewer.innerHTML = lines.map(l => {
+      let cls = '';
+      if (l.includes('[ERROR]') || l.includes('error') || l.includes('failed')) cls = 'log-err';
+      else if (l.includes('[api]') || l.includes('[agent]')) cls = 'log-info';
+      return `<div class="${cls}">${esc(l)}</div>`;
+    }).join('');
+    viewer.scrollTop = viewer.scrollHeight;
+  } catch(e) {
+    document.getElementById('dashboard-logs').textContent = 'Failed to load logs';
   }
 }
 
@@ -1086,6 +1197,126 @@ function toggleAutoRefresh() {
     clearInterval(logRefreshTimer);
     logRefreshTimer = null;
   }
+}
+
+// --- Login & Accounts ---
+let loginPollTimer = null;
+
+async function startLogin() {
+  document.getElementById('login-no-qr').style.display = 'none';
+  document.getElementById('login-qr-area').style.display = 'block';
+  document.getElementById('login-status-text').textContent = 'Fetching QR code...';
+  document.getElementById('login-qr-img').src = '';
+
+  try {
+    const r = await apiGet('/api/login/qrcode');
+    document.getElementById('login-qr-img').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(r.url);
+    document.getElementById('login-status-text').textContent = 'Scan with WeChat...';
+
+    // Start polling
+    if (loginPollTimer) clearInterval(loginPollTimer);
+    loginPollTimer = setInterval(() => pollLoginStatus(r.qrcode), 2000);
+    pollLoginStatus(r.qrcode);
+  } catch(e) {
+    document.getElementById('login-status-text').textContent = 'Failed: ' + e.message;
+    document.getElementById('login-no-qr').style.display = 'block';
+    document.getElementById('login-qr-area').style.display = 'none';
+  }
+}
+
+async function pollLoginStatus(qrcode) {
+  try {
+    const r = await apiGet('/api/login/status?qrcode=' + encodeURIComponent(qrcode));
+    const el = document.getElementById('login-status-text');
+    if (r.status === 'scaned') {
+      el.textContent = 'Scanned! Please confirm on phone...';
+    } else if (r.status === 'confirmed') {
+      clearInterval(loginPollTimer);
+      loginPollTimer = null;
+      el.textContent = 'Login successful! Bot: ' + (r.bot_id || '');
+      el.style.color = '#34d399';
+      toast('WeChat login successful', 'success');
+      loadAccounts();
+      setTimeout(() => {
+        el.style.color = '';
+        document.getElementById('login-no-qr').style.display = 'block';
+        document.getElementById('login-qr-area').style.display = 'none';
+      }, 3000);
+    } else if (r.status === 'expired') {
+      clearInterval(loginPollTimer);
+      loginPollTimer = null;
+      el.textContent = 'QR code expired. Click to retry.';
+      el.style.color = '#f87171';
+      setTimeout(() => {
+        el.style.color = '';
+        document.getElementById('login-no-qr').style.display = 'block';
+        document.getElementById('login-qr-area').style.display = 'none';
+      }, 2000);
+    }
+  } catch(e) {
+    // ignore poll errors
+  }
+}
+
+async function loadAccounts() {
+  try {
+    const accounts = await apiGet('/api/accounts');
+    const tbody = document.getElementById('accounts-tbody');
+    tbody.innerHTML = '';
+    if (accounts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text-muted)">No accounts</td></tr>';
+      return;
+    }
+    accounts.forEach(a => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="code">${esc(a.ilink_bot_id)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteAccount('${esc(a.id)}')">Remove</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    toast('Failed to load accounts: ' + e.message, 'error');
+  }
+}
+
+async function deleteAccount(id) {
+  if (!confirm('Remove this account?')) return;
+  try {
+    await apiDelete('/api/accounts/' + encodeURIComponent(id));
+    toast('Account removed', 'success');
+    loadAccounts();
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+function serviceRestart() {
+  if (!confirm('Restart weclaw service?')) return;
+  toast('Restarting...', 'info');
+  apiPost('/api/service/restart', null).then(() => {
+    toast('Restart initiated', 'success');
+  }).catch(() => {
+    // Connection lost is expected during restart
+    toast('Restart initiated (connection lost is normal)', 'info');
+  });
+  setTimeout(() => refreshDashboard(), 5000);
+}
+
+function serviceUpdate() {
+  if (!confirm('Build, deploy and restart weclaw? This may take a moment.')) return;
+  toast('Building and updating...', 'info');
+  apiPost('/api/service/update', null).then(r => {
+    toast(r.status, 'success');
+  }).catch(e => {
+    // Connection lost during restart is expected
+    if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      toast('Build successful, restarting...', 'info');
+    } else {
+      toast('Update failed: ' + e.message, 'error');
+    }
+  });
+  setTimeout(() => refreshDashboard(), 8000);
 }
 
 // --- Init ---

@@ -176,6 +176,11 @@ func (c *Client) doPost(ctx context.Context, path string, body interface{}, resu
 	return nil
 }
 
+// DoGet performs a GET request and decodes JSON. Exported for admin API use.
+func (c *Client) DoGet(ctx context.Context, url string, result interface{}) error {
+	return c.doGet(ctx, url, result)
+}
+
 func (c *Client) doGet(ctx context.Context, url string, result interface{}) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

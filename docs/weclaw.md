@@ -1,57 +1,56 @@
 # Project Documentation
 
-- **Generated at:** 2026-04-05 11:26:19
-- **Root Dir:** `.`
-- **File Count:** 37
-- **Total Lines:** 9450
-- **Total Size:** 262.92 KB
+- **Generated at:** 2026-04-05 12:40:35
+- **Root Dir:** `/home/nanobot/.nanobot/weclaw`
+- **File Count:** 38
+- **Total Size:** 273.62 KB
 
 <a name="toc"></a>
 ## 📂 扫描目录
-- [agent/acp_agent.go](#file-agent-acp_agent.go) (1342 lines, 34.06 KB)
-- [agent/agent.go](#file-agent-agent.go) (136 lines, 4.45 KB)
-- [agent/cli_agent.go](#file-agent-cli_agent.go) (304 lines, 8.77 KB)
-- [agent/env_test.go](#file-agent-env_test.go) (62 lines, 1.50 KB)
-- [agent/http_agent.go](#file-agent-http_agent.go) (194 lines, 5.23 KB)
-- [api/server.go](#file-api-server.go) (119 lines, 3.14 KB)
-- [cmd/login.go](#file-cmd-login.go) (30 lines, 0.56 KB)
-- [cmd/proc_unix.go](#file-cmd-proc_unix.go) (12 lines, 0.16 KB)
-- [cmd/proc_windows.go](#file-cmd-proc_windows.go) (9 lines, 0.15 KB)
-- [cmd/restart.go](#file-cmd-restart.go) (40 lines, 0.72 KB)
-- [cmd/root.go](#file-cmd-root.go) (27 lines, 0.50 KB)
-- [cmd/send.go](#file-cmd-send.go) (68 lines, 1.84 KB)
-- [cmd/start.go](#file-cmd-start.go) (435 lines, 11.48 KB)
-- [cmd/status.go](#file-cmd-status.go) (31 lines, 0.56 KB)
-- [cmd/stop.go](#file-cmd-stop.go) (21 lines, 0.31 KB)
-- [cmd/update.go](#file-cmd-update.go) (207 lines, 4.63 KB)
-- [config/config.go](#file-config-config.go) (141 lines, 4.21 KB)
-- [config/config_test.go](#file-config-config_test.go) (119 lines, 2.53 KB)
-- [config/detect.go](#file-config-detect.go) (281 lines, 9.21 KB)
-- [config/detect_test.go](#file-config-detect_test.go) (82 lines, 2.50 KB)
-- [hub/hub.go](#file-hub-hub.go) (414 lines, 10.01 KB)
-- [hub/hub_test.go](#file-hub-hub_test.go) (406 lines, 8.80 KB)
-- [ilink/auth.go](#file-ilink-auth.go) (177 lines, 3.96 KB)
-- [ilink/client.go](#file-ilink-client.go) (224 lines, 5.66 KB)
-- [ilink/monitor.go](#file-ilink-monitor.go) (181 lines, 4.60 KB)
-- [ilink/types.go](#file-ilink-types.go) (219 lines, 6.62 KB)
-- [main.go](#file-main.go) (7 lines, 0.09 KB)
-- [messaging/attachment.go](#file-messaging-attachment.go) (127 lines, 2.90 KB)
-- [messaging/attachment_test.go](#file-messaging-attachment_test.go) (100 lines, 2.96 KB)
-- [messaging/cdn.go](#file-messaging-cdn.go) (232 lines, 6.56 KB)
-- [messaging/handler.go](#file-messaging-handler.go) (2669 lines, 86.90 KB)
-- [messaging/handler_test.go](#file-messaging-handler_test.go) (233 lines, 6.39 KB)
-- [messaging/linkhoard.go](#file-messaging-linkhoard.go) (326 lines, 8.66 KB)
-- [messaging/markdown.go](#file-messaging-markdown.go) (103 lines, 3.01 KB)
-- [messaging/media.go](#file-messaging-media.go) (213 lines, 5.31 KB)
-- [messaging/media_test.go](#file-messaging-media_test.go) (73 lines, 1.81 KB)
-- [messaging/sender.go](#file-messaging-sender.go) (86 lines, 2.21 KB)
+- [📄 agent/acp_agent.go](#agentacp_agentgo) (1342 lines, 34.06 KB)
+- [📄 agent/agent.go](#agentagentgo) (136 lines, 4.45 KB)
+- [📄 agent/cli_agent.go](#agentcli_agentgo) (304 lines, 8.77 KB)
+- [📄 agent/env_test.go](#agentenv_testgo) (62 lines, 1.50 KB)
+- [📄 agent/http_agent.go](#agenthttp_agentgo) (194 lines, 5.23 KB)
+- [📄 api/server.go](#apiservergo) (119 lines, 3.14 KB)
+- [📄 cmd/login.go](#cmdlogingo) (30 lines, 0.56 KB)
+- [📄 cmd/proc_unix.go](#cmdproc_unixgo) (12 lines, 0.16 KB)
+- [📄 cmd/proc_windows.go](#cmdproc_windowsgo) (9 lines, 0.15 KB)
+- [📄 cmd/restart.go](#cmdrestartgo) (40 lines, 0.72 KB)
+- [📄 cmd/root.go](#cmdrootgo) (27 lines, 0.50 KB)
+- [📄 cmd/send.go](#cmdsendgo) (68 lines, 1.84 KB)
+- [📄 cmd/start.go](#cmdstartgo) (439 lines, 11.58 KB)
+- [📄 cmd/status.go](#cmdstatusgo) (31 lines, 0.56 KB)
+- [📄 cmd/stop.go](#cmdstopgo) (21 lines, 0.31 KB)
+- [📄 cmd/update.go](#cmdupdatego) (207 lines, 4.63 KB)
+- [📄 config/config.go](#configconfiggo) (141 lines, 4.21 KB)
+- [📄 config/config_test.go](#configconfig_testgo) (119 lines, 2.53 KB)
+- [📄 config/detect.go](#configdetectgo) (281 lines, 9.21 KB)
+- [📄 config/detect_test.go](#configdetect_testgo) (82 lines, 2.50 KB)
+- [📄 hub/hub.go](#hubhubgo) (414 lines, 10.01 KB)
+- [📄 hub/hub_test.go](#hubhub_testgo) (406 lines, 8.80 KB)
+- [📄 ilink/auth.go](#ilinkauthgo) (177 lines, 3.96 KB)
+- [📄 ilink/client.go](#ilinkclientgo) (224 lines, 5.66 KB)
+- [📄 ilink/monitor.go](#ilinkmonitorgo) (181 lines, 4.60 KB)
+- [📄 ilink/types.go](#ilinktypesgo) (219 lines, 6.62 KB)
+- [📄 main.go](#maingo) (7 lines, 0.09 KB)
+- [📄 messaging/attachment.go](#messagingattachmentgo) (127 lines, 2.90 KB)
+- [📄 messaging/attachment_test.go](#messagingattachment_testgo) (100 lines, 2.96 KB)
+- [📄 messaging/cdn.go](#messagingcdngo) (232 lines, 6.56 KB)
+- [📄 messaging/handler.go](#messaginghandlergo) (2693 lines, 87.70 KB)
+- [📄 messaging/handler_test.go](#messaginghandler_testgo) (233 lines, 6.39 KB)
+- [📄 messaging/linkhoard.go](#messaginglinkhoardgo) (326 lines, 8.66 KB)
+- [📄 messaging/markdown.go](#messagingmarkdowngo) (103 lines, 3.01 KB)
+- [📄 messaging/media.go](#messagingmediago) (213 lines, 5.31 KB)
+- [📄 messaging/media_test.go](#messagingmedia_testgo) (73 lines, 1.81 KB)
+- [📄 messaging/sender.go](#messagingsendergo) (86 lines, 2.21 KB)
+- [📄 messaging/todo.go](#messagingtodogo) (415 lines, 9.78 KB)
 
 ---
 
-<a name="file-agent-acp_agent.go"></a>
-## 📄 agent/acp_agent.go
+## agent/acp_agent.go
 
-````go
+```go
 package agent
 
 import (
@@ -1395,14 +1394,13 @@ func (w *acpStderrWriter) LastError() string {
 	return s
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-agent-agent.go"></a>
-## 📄 agent/agent.go
+## agent/agent.go
 
-````go
+```go
 package agent
 
 import (
@@ -1540,14 +1538,13 @@ type Agent interface {
 	SetProgressCallback(callback ProgressCallback)
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-agent-cli_agent.go"></a>
-## 📄 agent/cli_agent.go
+## agent/cli_agent.go
 
-````go
+```go
 package agent
 
 import (
@@ -1853,14 +1850,13 @@ func (a *CLIAgent) chatCodex(ctx context.Context, message string) (string, error
 	return result, nil
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-agent-env_test.go"></a>
-## 📄 agent/env_test.go
+## agent/env_test.go
 
-````go
+```go
 package agent
 
 import (
@@ -1924,14 +1920,13 @@ func TestMergeEnvOverridesExistingKeyWithEmptyValue(t *testing.T) {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-agent-http_agent.go"></a>
-## 📄 agent/http_agent.go
+## agent/http_agent.go
 
-````go
+```go
 package agent
 
 import (
@@ -2127,14 +2122,13 @@ func (a *HTTPAgent) buildMessages(conversationID string, message string) []ChatM
 	return messages
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-api-server.go"></a>
-## 📄 api/server.go
+## api/server.go
 
-````go
+```go
 package api
 
 import (
@@ -2255,14 +2249,13 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-login.go"></a>
-## 📄 cmd/login.go
+## cmd/login.go
 
-````go
+```go
 package cmd
 
 import (
@@ -2294,14 +2287,13 @@ var loginCmd = &cobra.Command{
 	},
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-proc_unix.go"></a>
-## 📄 cmd/proc_unix.go
+## cmd/proc_unix.go
 
-````go
+```go
 //go:build !windows
 
 package cmd
@@ -2315,14 +2307,13 @@ func setSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-proc_windows.go"></a>
-## 📄 cmd/proc_windows.go
+## cmd/proc_windows.go
 
-````go
+```go
 //go:build windows
 
 package cmd
@@ -2333,14 +2324,13 @@ func setSysProcAttr(_ *exec.Cmd) {
 	// No Setsid on Windows — process is already detached via Start()
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-restart.go"></a>
-## 📄 cmd/restart.go
+## cmd/restart.go
 
-````go
+```go
 package cmd
 
 import (
@@ -2382,14 +2372,13 @@ var restartCmd = &cobra.Command{
 	},
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-root.go"></a>
-## 📄 cmd/root.go
+## cmd/root.go
 
-````go
+```go
 package cmd
 
 import (
@@ -2418,14 +2407,13 @@ func Execute() {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-send.go"></a>
-## 📄 cmd/send.go
+## cmd/send.go
 
-````go
+```go
 package cmd
 
 import (
@@ -2495,14 +2483,13 @@ var sendCmd = &cobra.Command{
 	},
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-start.go"></a>
-## 📄 cmd/start.go
+## cmd/start.go
 
-````go
+```go
 package cmd
 
 import (
@@ -2663,6 +2650,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 	for _, c := range accounts {
 		clients = append(clients, ilink.NewClient(c))
 	}
+	// Set clients for todo scheduler reminders
+	handler.SetClients(clients)
+	handler.StartTodoScheduler(ctx)
+
 	// Resolve API addr: flag > env/config > default
 	apiAddr := cfg.APIAddr // already includes env override from loadEnv
 	if apiAddrFlag != "" {
@@ -2939,14 +2930,13 @@ func stopAllWeclaw() {
 	time.Sleep(500 * time.Millisecond)
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-status.go"></a>
-## 📄 cmd/status.go
+## cmd/status.go
 
-````go
+```go
 package cmd
 
 import (
@@ -2979,14 +2969,13 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-stop.go"></a>
-## 📄 cmd/stop.go
+## cmd/stop.go
 
-````go
+```go
 package cmd
 
 import (
@@ -3009,14 +2998,13 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-cmd-update.go"></a>
-## 📄 cmd/update.go
+## cmd/update.go
 
-````go
+```go
 package cmd
 
 import (
@@ -3225,14 +3213,13 @@ func resolveSymlink(path string) (string, error) {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-config-config.go"></a>
-## 📄 config/config.go
+## config/config.go
 
-````go
+```go
 package config
 
 import (
@@ -3375,14 +3362,13 @@ func Save(cfg *Config) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-config-config_test.go"></a>
-## 📄 config/config_test.go
+## config/config_test.go
 
-````go
+```go
 package config
 
 import (
@@ -3503,14 +3489,13 @@ func TestLoadEnvOverridesTopLevelOnly(t *testing.T) {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-config-detect.go"></a>
-## 📄 config/detect.go
+## config/detect.go
 
-````go
+```go
 package config
 
 import (
@@ -3793,14 +3778,13 @@ func lookPath(binary string) (string, error) {
 	return p, nil
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-config-detect_test.go"></a>
-## 📄 config/detect_test.go
+## config/detect_test.go
 
-````go
+```go
 package config
 
 import (
@@ -3884,14 +3868,13 @@ func TestDetectAndConfigure_StrippedPath(t *testing.T) {
 	t.Logf("detected claude: type=%s, command=%s", agent.Type, agent.Command)
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-hub-hub.go"></a>
-## 📄 hub/hub.go
+## hub/hub.go
 
-````go
+```go
 package hub
 
 import (
@@ -4307,14 +4290,13 @@ func sanitizeFilename(name string) string {
 	return name
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-hub-hub_test.go"></a>
-## 📄 hub/hub_test.go
+## hub/hub_test.go
 
-````go
+```go
 package hub
 
 import (
@@ -4722,14 +4704,13 @@ func TestHub_SizeLimit(t *testing.T) {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-ilink-auth.go"></a>
-## 📄 ilink/auth.go
+## ilink/auth.go
 
-````go
+```go
 package ilink
 
 import (
@@ -4908,14 +4889,13 @@ func CredentialsPath() (string, error) {
 	return AccountsDir()
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-ilink-client.go"></a>
-## 📄 ilink/client.go
+## ilink/client.go
 
-````go
+```go
 package ilink
 
 import (
@@ -5141,14 +5121,13 @@ func generateWechatUIN() string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-ilink-monitor.go"></a>
-## 📄 ilink/monitor.go
+## ilink/monitor.go
 
-````go
+```go
 package ilink
 
 import (
@@ -5331,14 +5310,13 @@ func FormatMessageSummary(msg WeixinMessage) string {
 	return fmt.Sprintf("from=%s type=%d state=%d text=%q", msg.FromUserID, msg.MessageType, msg.MessageState, text)
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-ilink-types.go"></a>
-## 📄 ilink/types.go
+## ilink/types.go
 
-````go
+```go
 package ilink
 
 // Message types
@@ -5559,14 +5537,13 @@ type SendTypingResponse struct {
 	ErrMsg string `json:"errmsg,omitempty"`
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-main.go"></a>
-## 📄 main.go
+## main.go
 
-````go
+```go
 package main
 
 import "github.com/fastclaw-ai/weclaw/cmd"
@@ -5575,14 +5552,13 @@ func main() {
 	cmd.Execute()
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-attachment.go"></a>
-## 📄 messaging/attachment.go
+## messaging/attachment.go
 
-````go
+```go
 package messaging
 
 import (
@@ -5711,14 +5687,13 @@ func canonicalizePath(path string, mustExist bool) (string, error) {
 	return filepath.Clean(absPath), nil
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-attachment_test.go"></a>
-## 📄 messaging/attachment_test.go
+## messaging/attachment_test.go
 
-````go
+```go
 package messaging
 
 import (
@@ -5820,14 +5795,13 @@ func TestRewriteReplyWithAttachmentResults(t *testing.T) {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-cdn.go"></a>
-## 📄 messaging/cdn.go
+## messaging/cdn.go
 
-````go
+```go
 package messaging
 
 import (
@@ -6061,14 +6035,13 @@ func aesECBPaddedSize(plaintextSize int) int {
 	return (plaintextSize/aes.BlockSize + 1) * aes.BlockSize
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-handler.go"></a>
-## 📄 messaging/handler.go
+## messaging/handler.go
 
-````go
+```go
 package messaging
 
 import (
@@ -6129,6 +6102,8 @@ type Handler struct {
 	progressCtx     *progressContext // current request context for progress notifications
 	lastReplies     sync.Map         // map[userID]string — last agent reply per user (for /save without message)
 	shellModeStates sync.Map         // map[userID]*shellModeState — per-user shell mode state
+	todoStore       *TodoStore
+	clients         []*ilink.Client
 }
 
 // progressContext holds context for sending progress notifications.
@@ -6156,6 +6131,7 @@ func NewHandler(factory AgentFactory, saveDefault SaveDefaultFunc) *Handler {
 		factory:       factory,
 		saveDefault:   saveDefault,
 		hub:           hub.New(hub.DefaultDir()),
+		todoStore:     NewTodoStore(hub.DefaultDir()),
 	}
 }
 
@@ -6185,6 +6161,12 @@ func (h *Handler) SetCustomAliases(aliases map[string]string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.customAliases = aliases
+}
+
+func (h *Handler) SetClients(clients []*ilink.Client) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.clients = clients
 }
 
 // SetAgentMetas sets the list of all configured agents (for /status).
@@ -6312,7 +6294,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -6564,6 +6546,14 @@ handleBuiltinCommand:
 		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/podcast") {
 		reply := h.handlePodcast(ctx, client, msg, effectiveTrimmed, clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/todo") {
+		reply := h.handleTodo(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -7608,6 +7598,13 @@ func buildHelpText() string {
   /sh              进入命令行模式（支持持久化目录、免前缀）
   /sh <命令>       执行单次命令（不进入模式）
   命令行模式下: cd /q 退出/切换目录，ls cat pwd 等
+
+📋 待办事项
+  /todo <事项>        添加待办（支持自然语言时间）
+  /todo list          查看待办列表
+  /todo done <编号>   完成待办
+  /todo del <编号>    删除待办
+  /todo clear         清空所有待办
 
 📂 Agent（默认: nanobot）
   nanobot(nb,n,bot)  claude(c)  gemini(g)  deepseek(ds)
@@ -8739,14 +8736,13 @@ func formatShellOutput(cwd string, output string) string {
 	return fmt.Sprintf("%s\n```\n%s\n```", prompt, output)
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-handler_test.go"></a>
-## 📄 messaging/handler_test.go
+## messaging/handler_test.go
 
-````go
+```go
 package messaging
 
 import (
@@ -8981,14 +8977,13 @@ func TestIsBuiltinCommand_Debate(t *testing.T) {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-linkhoard.go"></a>
-## 📄 messaging/linkhoard.go
+## messaging/linkhoard.go
 
-````go
+```go
 package messaging
 
 import (
@@ -9316,14 +9311,13 @@ func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (*LinkMeta
 	return meta, nil
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-markdown.go"></a>
-## 📄 messaging/markdown.go
+## messaging/markdown.go
 
-````go
+```go
 package messaging
 
 import (
@@ -9428,14 +9422,13 @@ func MarkdownToPlainText(text string) string {
 	return strings.TrimSpace(result)
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-media.go"></a>
-## 📄 messaging/media.go
+## messaging/media.go
 
-````go
+```go
 package messaging
 
 import (
@@ -9650,14 +9643,13 @@ func stripQuery(rawURL string) string {
 	return rawURL
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-media_test.go"></a>
-## 📄 messaging/media_test.go
+## messaging/media_test.go
 
-````go
+```go
 package messaging
 
 import "testing"
@@ -9732,14 +9724,13 @@ func TestStripQuery(t *testing.T) {
 	}
 }
 
-````
+```
 
 [⬆ 回到目录](#toc)
 
-<a name="file-messaging-sender.go"></a>
-## 📄 messaging/sender.go
+## messaging/sender.go
 
-````go
+```go
 package messaging
 
 import (
@@ -9827,12 +9818,435 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-````
+```
+
+[⬆ 回到目录](#toc)
+
+## messaging/todo.go
+
+```go
+package messaging
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/fastclaw-ai/weclaw/ilink"
+)
+
+// TodoItem represents a single todo task.
+type TodoItem struct {
+	ID        int    `json:"id"`
+	UserID    string `json:"user_id"`
+	Title     string `json:"title"`
+	DueTime   int64  `json:"due_time"` // Unix timestamp, 0 = no deadline
+	Status    int    `json:"status"`   // 0=pending, 1=done
+	CreatedAt int64  `json:"created_at"`
+	Reminded  bool   `json:"reminded"` // whether reminder was sent
+}
+
+// TodoStore manages todos in a JSON file.
+type TodoStore struct {
+	mu       sync.Mutex
+	filePath string
+	items    []TodoItem
+	nextID   int
+}
+
+// NewTodoStore creates a todo store backed by a JSON file.
+func NewTodoStore(dir string) *TodoStore {
+	ts := &TodoStore{
+		filePath: filepath.Join(dir, "todos.json"),
+	}
+	ts.load()
+	return ts
+}
+
+func (ts *TodoStore) load() {
+	data, err := os.ReadFile(ts.filePath)
+	if err != nil {
+		ts.items = []TodoItem{}
+		ts.nextID = 1
+		return
+	}
+	var items []TodoItem
+	if err := json.Unmarshal(data, &items); err != nil {
+		log.Printf("[todo] failed to parse %s: %v", ts.filePath, err)
+		ts.items = []TodoItem{}
+		ts.nextID = 1
+		return
+	}
+	ts.items = items
+	ts.nextID = 1
+	for _, item := range items {
+		if item.ID >= ts.nextID {
+			ts.nextID = item.ID + 1
+		}
+	}
+}
+
+func (ts *TodoStore) save() error {
+	data, err := json.MarshalIndent(ts.items, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(ts.filePath, data, 0644)
+}
+
+// Add creates a new todo and returns its ID.
+func (ts *TodoStore) Add(userID, title string, dueTime int64) int {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	item := TodoItem{
+		ID:        ts.nextID,
+		UserID:    userID,
+		Title:     title,
+		DueTime:   dueTime,
+		Status:    0,
+		CreatedAt: time.Now().Unix(),
+	}
+	ts.nextID++
+	ts.items = append(ts.items, item)
+	ts.save()
+	return item.ID
+}
+
+// List returns pending todos for a user, sorted by due time.
+func (ts *TodoStore) List(userID string) []TodoItem {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	var result []TodoItem
+	for _, item := range ts.items {
+		if item.UserID == userID && item.Status == 0 {
+			result = append(result, item)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].DueTime == 0 && result[j].DueTime == 0 {
+			return result[i].CreatedAt < result[j].CreatedAt
+		}
+		if result[i].DueTime == 0 {
+			return false
+		}
+		if result[j].DueTime == 0 {
+			return true
+		}
+		return result[i].DueTime < result[j].DueTime
+	})
+	return result
+}
+
+// Done marks a todo as completed.
+func (ts *TodoStore) Done(userID string, id int) (string, error) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	for i := range ts.items {
+		if ts.items[i].UserID == userID && ts.items[i].ID == id {
+			if ts.items[i].Status == 1 {
+				return "", fmt.Errorf(" #%d 已经完成了", id)
+			}
+			ts.items[i].Status = 1
+			title := ts.items[i].Title
+			ts.save()
+			return title, nil
+		}
+	}
+	return "", fmt.Errorf("没有找到 #%d", id)
+}
+
+// Delete removes a todo.
+func (ts *TodoStore) Delete(userID string, id int) (string, error) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	for i := range ts.items {
+		if ts.items[i].UserID == userID && ts.items[i].ID == id {
+			title := ts.items[i].Title
+			ts.items = append(ts.items[:i], ts.items[i+1:]...)
+			ts.save()
+			return title, nil
+		}
+	}
+	return "", fmt.Errorf("没有找到 #%d", id)
+}
+
+// Clear removes all todos for a user and returns the count removed.
+func (ts *TodoStore) Clear(userID string) int {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	n := 0
+	remaining := ts.items[:0]
+	for _, item := range ts.items {
+		if item.UserID == userID && item.Status == 0 {
+			n++
+		} else {
+			remaining = append(remaining, item)
+		}
+	}
+	ts.items = remaining
+	ts.save()
+	return n
+}
+
+// GetDueReminders returns pending todos that are due within the next minute
+// and haven't been reminded yet.
+func (ts *TodoStore) GetDueReminders() []TodoItem {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	now := time.Now().Unix()
+	var result []TodoItem
+	for _, item := range ts.items {
+		if item.Status == 0 && !item.Reminded && item.DueTime > 0 && item.DueTime <= now+60 {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+// MarkReminded marks a todo as reminded.
+func (ts *TodoStore) MarkReminded(id int) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	for i := range ts.items {
+		if ts.items[i].ID == id {
+			ts.items[i].Reminded = true
+			ts.save()
+			return
+		}
+	}
+}
+
+// handleTodo processes /todo commands.
+func (h *Handler) handleTodo(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
+	var reply string
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/todo"))
+
+	if rest == "" || rest == "list" || rest == "ls" {
+		return h.formatTodoList(msg.FromUserID)
+	}
+
+	parts := strings.Fields(rest)
+	sub := parts[0]
+
+	switch sub {
+	case "done", "ok", "finish":
+		if len(parts) < 2 {
+			reply = "用法: /todo done <编号>"
+		}
+		id, err := strconv.Atoi(parts[1])
+		if err != nil {
+			reply = "编号必须是数字"
+		}
+		title, err := h.todoStore.Done(msg.FromUserID, id)
+		if err != nil {
+			return err.Error()
+		}
+		return fmt.Sprintf("✅ 已完成 #%d: %s", id, title)
+
+	case "del", "rm", "delete":
+		if len(parts) < 2 {
+			reply = "用法: /todo del <编号>"
+		}
+		id, err := strconv.Atoi(parts[1])
+		if err != nil {
+			reply = "编号必须是数字"
+		}
+		title, err := h.todoStore.Delete(msg.FromUserID, id)
+		if err != nil {
+			return err.Error()
+		}
+		return fmt.Sprintf("🗑 已删除 #%d: %s", id, title)
+
+	case "clear":
+		n := h.todoStore.Clear(msg.FromUserID)
+		if n == 0 {
+			return "📋 没有待办事项"
+		}
+		return fmt.Sprintf("🗑 已清空 %d 条待办事项", n)
+
+	default:
+		// Create new todo: try to parse time from the text using agent
+		reply = h.createTodo(ctx, msg.FromUserID, rest)
+	}
+
+	return reply
+}
+
+func (h *Handler) formatTodoList(userID string) string {
+	items := h.todoStore.List(userID)
+	if len(items) == 0 {
+		return "📋 待办清单为空"
+	}
+
+	var sb strings.Builder
+	sb.WriteString("📋 **待办清单**\n\n")
+	for _, item := range items {
+		dueStr := ""
+		if item.DueTime > 0 {
+			due := time.Unix(item.DueTime, 0)
+			diff := time.Until(due)
+			if diff < 0 {
+				dueStr = fmt.Sprintf(" (⚠️ 已超时 %s)", formatDuration(-diff))
+			} else if diff < time.Hour {
+				dueStr = fmt.Sprintf(" (%d分钟后)", int(diff.Minutes()))
+			} else {
+				dueStr = fmt.Sprintf(" (%s)", due.Format("01-02 15:04"))
+			}
+		}
+		sb.WriteString(fmt.Sprintf("#%d. %s%s\n", item.ID, item.Title, dueStr))
+	}
+	return sb.String()
+}
+
+func (h *Handler) createTodo(ctx context.Context, userID, text string) string {
+	// Try to extract time using the default agent
+	var dueTime int64
+	var title string
+
+	ag := h.getDefaultAgent()
+	if ag != nil {
+		prompt := fmt.Sprintf(`从下面这句话中提取时间和待办事项。只返回JSON，格式：{"time": "YYYY-MM-DD HH:MM:SS", "title": "事项"}。
+如果没有明确时间，time设为空字符串。只输出JSON，不要其他文字。
+句子：%s`, text)
+
+		reply, err := ag.Chat(ctx, userID+"_todo", prompt)
+		if err == nil {
+			var parsed struct {
+				Time  string `json:"time"`
+				Title string `json:"title"`
+			}
+			// Try to extract JSON from reply
+			reply = strings.TrimSpace(reply)
+			if idx := strings.Index(reply, "{"); idx >= 0 {
+				reply = reply[idx:]
+			}
+			if err := json.Unmarshal([]byte(reply), &parsed); err == nil && parsed.Title != "" {
+				title = parsed.Title
+				if parsed.Time != "" {
+					if t, err := time.ParseInLocation("2006-01-02 15:04:05", parsed.Time, time.Local); err == nil {
+						dueTime = t.Unix()
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback: use raw text as title
+	if title == "" {
+		title = text
+	}
+
+	id := h.todoStore.Add(userID, title, dueTime)
+	if dueTime > 0 {
+		due := time.Unix(dueTime, 0)
+		return fmt.Sprintf("✅ 已添加 #%d: %s (截止 %s)", id, title, due.Format("01-02 15:04"))
+	}
+	return fmt.Sprintf("✅ 已添加 #%d: %s", id, title)
+}
+
+// formatDuration returns a human-readable duration string.
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return "刚刚"
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%d分钟", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%d小时", int(d.Hours()))
+	}
+	return fmt.Sprintf("%d天", int(d.Hours()/24))
+}
+
+// StartTodoScheduler starts a background goroutine that checks for due reminders.
+func (h *Handler) StartTodoScheduler(ctx context.Context) {
+	if h.todoStore == nil {
+		return
+	}
+	h.mu.RLock()
+	hasClients := len(h.clients) > 0
+	h.mu.RUnlock()
+	if !hasClients {
+		return
+	}
+
+	ticker := time.NewTicker(1 * time.Minute)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				h.checkReminders(ctx)
+			}
+		}
+	}()
+}
+
+func (h *Handler) checkReminders(ctx context.Context) {
+	items := h.todoStore.GetDueReminders()
+	if len(items) == 0 {
+		return
+	}
+
+	h.mu.RLock()
+	clients := h.clients
+	h.mu.RUnlock()
+
+	for _, item := range items {
+		text := fmt.Sprintf("⏰ 提醒: %s", item.Title)
+		if item.DueTime > 0 {
+			due := time.Unix(item.DueTime, 0)
+			text += fmt.Sprintf(" (截止 %s)", due.Format("15:04"))
+		}
+		cid := NewClientID()
+		plainText := MarkdownToPlainText(text)
+
+		for _, client := range clients {
+			req := &ilink.SendMessageRequest{
+				Msg: ilink.SendMsg{
+					FromUserID:   client.BotID(),
+					ToUserID:     item.UserID,
+					ClientID:     cid,
+					MessageType:  ilink.MessageTypeBot,
+					MessageState: ilink.MessageStateFinish,
+					ItemList: []ilink.MessageItem{
+						{Type: ilink.ItemTypeText, TextItem: &ilink.TextItem{Text: plainText}},
+					},
+				},
+			}
+			resp, err := client.SendMessage(ctx, req)
+			if err != nil || resp.Ret != 0 {
+				log.Printf("[todo] failed to send reminder to %s: err=%v ret=%d", item.UserID, err, resp.Ret)
+			} else {
+				log.Printf("[todo] sent reminder #%d to %s: %s", item.ID, item.UserID, item.Title)
+				h.todoStore.MarkReminded(item.ID)
+			}
+		}
+	}
+}
+
+```
 
 [⬆ 回到目录](#toc)
 
 ---
 ### 📊 最终统计汇总
-- **文件总数:** 37
-- **代码总行数:** 9450
-- **物理总大小:** 262.92 KB
+- **文件总数:** 38
+- **代码总行数:** 9893
+- **物理总大小:** 273.62 KB

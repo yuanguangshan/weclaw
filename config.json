@@ -1,0 +1,121 @@
+{
+  "default_agent": "nanobot",
+  "api_addr": "127.0.0.1:18011",
+  "save_dir": "/tmp/weclaw-media",
+  "agents": {
+    "Assistant": {
+      "type": "http",
+      "aliases": [
+        "pa",
+        "p"
+      ],
+      "model": "Assistant",
+      "endpoint": "https://aiproxy.want.biz/v1/chat/completions",
+      "api_key": "ErnfFFQj9_jWv2NRbvXrZOuWBak3Zjc9zGlXXMKIPXs"
+    },
+    "POE-Claude-Sonnet-4.6": {
+      "type": "http",
+      "aliases": [
+        "ps"
+      ],
+      "model": "Claude-Sonnet-4.6",
+      "endpoint": "https://aiproxy.want.biz/v1/chat/completions",
+      "api_key": "ErnfFFQj9_jWv2NRbvXrZOuWBak3Zjc9zGlXXMKIPXs"
+    },
+    "POE-GPT-5.4-Mini": {
+      "type": "http",
+      "aliases": [
+        "po"
+      ],
+      "model": "GPT-5.4-mini",
+      "endpoint": "https://aiproxy.want.biz/v1/chat/completions",
+      "api_key": "ErnfFFQj9_jWv2NRbvXrZOuWBak3Zjc9zGlXXMKIPXs"
+    },
+    "POE-Grok-4.1-Fast-Reasoning": {
+      "type": "http",
+      "aliases": [
+        "pk"
+      ],
+      "model": "Grok-4.1-Fast-Reasoning",
+      "endpoint": "https://aiproxy.want.biz/v1/chat/completions",
+      "api_key": "ErnfFFQj9_jWv2NRbvXrZOuWBak3Zjc9zGlXXMKIPXs"
+    },
+    "POE-Qwen3.5-Omni-Plus": {
+      "type": "http",
+      "aliases": [
+        "pq"
+      ],
+      "model": "Qwen3.5-Omni-Plus",
+      "endpoint": "https://aiproxy.want.biz/v1/chat/completions",
+      "api_key": "ErnfFFQj9_jWv2NRbvXrZOuWBak3Zjc9zGlXXMKIPXs"
+    },
+    "POE-gemini": {
+      "type": "http",
+      "aliases": [
+        "pg"
+      ],
+      "model": "Gemini-3-Flash",
+      "endpoint": "https://aiproxy.want.biz/v1/chat/completions",
+      "api_key": "ErnfFFQj9_jWv2NRbvXrZOuWBak3Zjc9zGlXXMKIPXs"
+    },
+    "claude": {
+      "type": "cli",
+      "command": "/root/.local/bin/claude",
+      "args": [
+        "--add-dir",
+        "/home/nanobot/.nanobot/weclaw",
+        "--add-dir",
+        "/root/.weclaw/workspace"
+      ],
+      "aliases": [
+        "c"
+      ],
+      "env": {
+        "CLAUDECODE": ""
+      },
+      "model": "sonnet"
+    },
+    "deepseek": {
+      "type": "http",
+      "aliases": [
+        "ds",
+        "deepseek"
+      ],
+      "model": "deepseek-chat",
+      "endpoint": "https://api.deepseek.com/v1/chat/completions",
+      "api_key": "sk-00b9bf0c46d241c0a62cd273ca1d5b8a"
+    },
+    "gemini": {
+      "type": "http",
+      "aliases": [
+        "g"
+      ],
+      "model": "gemini-2.5-flash",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      "api_key": "AIzaSyAGdqQQcGoA3CrgI_niidKai9UbzoOv5f0"
+    },
+    "nanobot": {
+      "type": "acp",
+      "command": "/home/nanobot/.nanobot/.venv/bin/python3",
+      "args": [
+        "/home/nanobot/.nanobot/scripts/acp_adapter.py"
+      ],
+      "aliases": [
+        "nb",
+        "n",
+        "bot"
+      ]
+    },
+    "zhipu": {
+      "type": "http",
+      "aliases": [
+        "glm",
+        "z",
+        "zhipu"
+      ],
+      "model": "glm-5-turbo",
+      "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "api_key": "8257712cb2d54fa8ab0225d8c939f3f0.Rh1CErv5jRjUeqYx"
+    }
+  }
+}

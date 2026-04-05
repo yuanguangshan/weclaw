@@ -155,6 +155,25 @@ func (ts *TodoStore) Delete(userID string, id int) (string, error) {
 	return "", fmt.Errorf("没有找到 #%d", id)
 }
 
+// Clear removes all todos for a user and returns the count removed.
+func (ts *TodoStore) Clear(userID string) int {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	n := 0
+	remaining := ts.items[:0]
+	for _, item := range ts.items {
+		if item.UserID == userID && item.Status == 0 {
+			n++
+		} else {
+			remaining = append(remaining, item)
+		}
+	}
+	ts.items = remaining
+	ts.save()
+	return n
+}
+
 // GetDueReminders returns pending todos that are due within the next minute
 // and haven't been reminded yet.
 func (ts *TodoStore) GetDueReminders() []TodoItem {
@@ -226,6 +245,13 @@ func (h *Handler) handleTodo(ctx context.Context, client *ilink.Client, msg ilin
 		}
 		return fmt.Sprintf("🗑 已删除 #%d: %s", id, title)
 
+	case "clear":
+		n := h.todoStore.Clear(msg.FromUserID)
+		if n == 0 {
+			return "📋 没有待办事项"
+		}
+		return fmt.Sprintf("🗑 已清空 %d 条待办事项", n)
+
 	default:
 		// Create new todo: try to parse time from the text using agent
 		reply = h.createTodo(ctx, msg.FromUserID, rest)
@@ -242,7 +268,7 @@ func (h *Handler) formatTodoList(userID string) string {
 
 	var sb strings.Builder
 	sb.WriteString("📋 **待办清单**\n\n")
-	for i, item := range items {
+	for _, item := range items {
 		dueStr := ""
 		if item.DueTime > 0 {
 			due := time.Unix(item.DueTime, 0)
@@ -255,7 +281,7 @@ func (h *Handler) formatTodoList(userID string) string {
 				dueStr = fmt.Sprintf(" (%s)", due.Format("01-02 15:04"))
 			}
 		}
-		sb.WriteString(fmt.Sprintf("%d. %s%s\n", i+1, item.Title, dueStr))
+		sb.WriteString(fmt.Sprintf("#%d. %s%s\n", item.ID, item.Title, dueStr))
 	}
 	return sb.String()
 }

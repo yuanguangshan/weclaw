@@ -158,6 +158,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 	for _, c := range accounts {
 		clients = append(clients, ilink.NewClient(c))
 	}
+	// Set clients for todo scheduler reminders
+	handler.SetClients(clients)
+	handler.StartTodoScheduler(ctx)
+
 	// Resolve API addr: flag > env/config > default
 	apiAddr := cfg.APIAddr // already includes env override from loadEnv
 	if apiAddrFlag != "" {

@@ -1555,6 +1555,13 @@ func buildHelpText() string {
   /sh <命令>       执行单次命令（不进入模式）
   命令行模式下: cd /q 退出/切换目录，ls cat pwd 等
 
+📋 待办事项
+  /todo <事项>        添加待办（支持自然语言时间）
+  /todo list          查看待办列表
+  /todo done <编号>   完成待办
+  /todo del <编号>    删除待办
+  /todo clear         清空所有待办
+
 📂 Agent（默认: nanobot）
   nanobot(nb,n,bot)  claude(c)  gemini(g)  deepseek(ds)
   pa(p)  ps  po  pg  zhipu(glm,z)

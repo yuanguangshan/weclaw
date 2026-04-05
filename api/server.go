@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/fastclaw-ai/weclaw/ilink"
 	"github.com/fastclaw-ai/weclaw/messaging"
@@ -14,8 +15,10 @@ import (
 
 // Server provides an HTTP API for sending messages and admin management.
 type Server struct {
-	clients []*ilink.Client
-	addr    string
+	clients  []*ilink.Client
+	addr     string
+	todosMu  sync.Mutex // protects todos.json read/write
+	timersMu sync.Mutex // protects timers.json read/write
 }
 
 // NewServer creates an API server.
@@ -73,7 +76,7 @@ func (s *Server) Run(ctx context.Context) error {
 	mux.HandleFunc("GET /api/hub", s.handleListHub)
 	mux.HandleFunc("GET /api/hub/{name}", s.handleReadHubFile)
 	mux.HandleFunc("DELETE /api/hub/{name}", s.handleDeleteHubFile)
-	mux.HandleFunc("DELETE /api/hub/clear", s.handleClearHub)
+	mux.HandleFunc("POST /api/hub/clear", s.handleClearHub)
 
 	// Admin API - Todos
 	mux.HandleFunc("GET /api/todos", s.handleListTodos)

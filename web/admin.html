@@ -500,7 +500,7 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
     <div class="page-header">
       <h2>Hub Files</h2>
       <div class="btn-group">
-        <button class="btn btn-danger btn-sm" onclick="if(confirm('Clear all hub files?'))apiDelete('/api/hub/clear').then(r=>{toast('Cleared '+r.deleted+' files');loadHub()})">Clear All</button>
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('Clear all hub files?'))apiPost('/api/hub/clear',null).then(r=>{toast('Cleared '+r.deleted+' files');loadHub()})">Clear All</button>
         <button class="btn btn-ghost btn-sm" onclick="loadHub()">Refresh</button>
       </div>
     </div>

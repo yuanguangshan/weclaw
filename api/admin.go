@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -19,6 +18,33 @@ import (
 	"github.com/fastclaw-ai/weclaw/hub"
 	"github.com/fastclaw-ai/weclaw/ilink"
 )
+
+// ---------------------------------------------------------------------------
+// Data types
+// ---------------------------------------------------------------------------
+
+// Todo represents a single todo item persisted in todos.json.
+type Todo struct {
+	ID        int    `json:"id"`
+	UserID    string `json:"user_id"`
+	Title     string `json:"title"`
+	DueTime   int64  `json:"due_time"`
+	Status    int    `json:"status"` // 0=pending, 1=done
+	CreatedAt int64  `json:"created_at"`
+	Reminded  bool   `json:"reminded"`
+}
+
+// Timer represents a single timer item persisted in timers.json.
+type Timer struct {
+	ID        int    `json:"id"`
+	UserID    string `json:"user_id"`
+	Label     string `json:"label"`
+	Duration  int64  `json:"duration"`
+	EndTime   int64  `json:"end_time"`
+	Status    int    `json:"status"` // 0=running, 2=cancelled
+	CreatedAt int64  `json:"created_at"`
+	Reminded  bool   `json:"reminded"`
+}
 
 // --- Config & Agents ---
 
@@ -426,20 +452,78 @@ func (s *Server) handleClearHub(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"status": "ok", "deleted": count})
 }
 
+// --- Helpers ---
+
+func (s *Server) loadTodos() ([]Todo, error) {
+	path := filepath.Join(hub.DefaultDir(), "todos.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Todo{}, nil
+		}
+		return nil, err
+	}
+	var items []Todo
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *Server) saveTodos(items []Todo) error {
+	path := filepath.Join(hub.DefaultDir(), "todos.json")
+	data, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func (s *Server) loadTimers() ([]Timer, error) {
+	path := filepath.Join(hub.DefaultDir(), "timers.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Timer{}, nil
+		}
+		return nil, err
+	}
+	var items []Timer
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *Server) saveTimers(items []Timer) error {
+	path := filepath.Join(hub.DefaultDir(), "timers.json")
+	data, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func nextID[T any](items []T, getID func(T) int) int {
+	maxID := 0
+	for _, item := range items {
+		if id := getID(item); id >= maxID {
+			maxID = id + 1
+		}
+	}
+	return maxID
+}
+
 // --- Todos ---
 
 func (s *Server) handleListTodos(w http.ResponseWriter, r *http.Request) {
-	dataDir := hub.DefaultDir()
-	path := filepath.Join(dataDir, "todos.json")
-	data, err := os.ReadFile(path)
+	items, err := s.loadTodos()
 	if err != nil {
-		writeJSON(w, []interface{}{})
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	var items []interface{}
-	if err := json.Unmarshal(data, &items); err != nil {
-		writeJSON(w, []interface{}{})
-		return
+	if items == nil {
+		items = []Todo{}
 	}
 	writeJSON(w, items)
 }
@@ -457,40 +541,27 @@ func (s *Server) handleAddTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataDir := hub.DefaultDir()
-	path := filepath.Join(dataDir, "todos.json")
+	s.todosMu.Lock()
+	defer s.todosMu.Unlock()
 
-	// Read existing
-	var items []map[string]interface{}
-	if data, err := os.ReadFile(path); err == nil {
-		json.Unmarshal(data, &items)
-	}
-	if items == nil {
-		items = []map[string]interface{}{}
+	items, err := s.loadTodos()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	// Find next ID
-	nextID := 1
-	for _, item := range items {
-		if id, ok := item["id"].(float64); ok && int(id) >= nextID {
-			nextID = int(id) + 1
-		}
-	}
-
-	item := map[string]interface{}{
-		"id":         nextID,
-		"user_id":    "admin",
-		"title":      req.Title,
-		"due_time":   0,
-		"status":     0,
-		"created_at": time.Now().Unix(),
-		"reminded":   false,
+	item := Todo{
+		ID:        nextID(items, func(t Todo) int { return t.ID }),
+		UserID:    "admin",
+		Title:     req.Title,
+		CreatedAt: time.Now().Unix(),
 	}
 	items = append(items, item)
 
-	data, _ := json.MarshalIndent(items, "", "  ")
-	os.WriteFile(path, data, 0644)
-
+	if err := s.saveTodos(items); err != nil {
+		writeError(w, http.StatusInternalServerError, "save failed: "+err.Error())
+		return
+	}
 	writeJSON(w, item)
 }
 
@@ -502,21 +573,19 @@ func (s *Server) handleDoneTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataDir := hub.DefaultDir()
-	path := filepath.Join(dataDir, "todos.json")
-	data, err := os.ReadFile(path)
+	s.todosMu.Lock()
+	defer s.todosMu.Unlock()
+
+	items, err := s.loadTodos()
 	if err != nil {
-		writeError(w, http.StatusNotFound, "no todos")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	var items []map[string]interface{}
-	json.Unmarshal(data, &items)
-
 	found := false
-	for _, item := range items {
-		if itemID, ok := item["id"].(float64); ok && int(itemID) == id {
-			item["status"] = 1
+	for i := range items {
+		if items[i].ID == id {
+			items[i].Status = 1
 			found = true
 			break
 		}
@@ -526,8 +595,10 @@ func (s *Server) handleDoneTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, _ = json.MarshalIndent(items, "", "  ")
-	os.WriteFile(path, data, 0644)
+	if err := s.saveTodos(items); err != nil {
+		writeError(w, http.StatusInternalServerError, "save failed: "+err.Error())
+		return
+	}
 	writeJSON(w, map[string]string{"status": "ok"})
 }
 
@@ -539,21 +610,19 @@ func (s *Server) handleDeleteTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataDir := hub.DefaultDir()
-	path := filepath.Join(dataDir, "todos.json")
-	data, err := os.ReadFile(path)
+	s.todosMu.Lock()
+	defer s.todosMu.Unlock()
+
+	items, err := s.loadTodos()
 	if err != nil {
-		writeError(w, http.StatusNotFound, "no todos")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	var items []map[string]interface{}
-	json.Unmarshal(data, &items)
-
-	var remaining []map[string]interface{}
+	remaining := make([]Todo, 0, len(items))
 	found := false
 	for _, item := range items {
-		if itemID, ok := item["id"].(float64); ok && int(itemID) == id {
+		if item.ID == id {
 			found = true
 			continue
 		}
@@ -564,28 +633,23 @@ func (s *Server) handleDeleteTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if remaining == nil {
-		remaining = []map[string]interface{}{}
+	if err := s.saveTodos(remaining); err != nil {
+		writeError(w, http.StatusInternalServerError, "save failed: "+err.Error())
+		return
 	}
-	data, _ = json.MarshalIndent(remaining, "", "  ")
-	os.WriteFile(path, data, 0644)
 	writeJSON(w, map[string]string{"status": "ok"})
 }
 
 // --- Timers ---
 
 func (s *Server) handleListTimers(w http.ResponseWriter, r *http.Request) {
-	dataDir := hub.DefaultDir()
-	path := filepath.Join(dataDir, "timers.json")
-	data, err := os.ReadFile(path)
+	items, err := s.loadTimers()
 	if err != nil {
-		writeJSON(w, []interface{}{})
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	var items []interface{}
-	if err := json.Unmarshal(data, &items); err != nil {
-		writeJSON(w, []interface{}{})
-		return
+	if items == nil {
+		items = []Timer{}
 	}
 	writeJSON(w, items)
 }
@@ -611,40 +675,30 @@ func (s *Server) handleAddTimer(w http.ResponseWriter, r *http.Request) {
 		req.Label = "Timer"
 	}
 
-	dataDir := hub.DefaultDir()
-	path := filepath.Join(dataDir, "timers.json")
+	s.timersMu.Lock()
+	defer s.timersMu.Unlock()
 
-	var items []map[string]interface{}
-	if data, err := os.ReadFile(path); err == nil {
-		json.Unmarshal(data, &items)
-	}
-	if items == nil {
-		items = []map[string]interface{}{}
-	}
-
-	nextID := 1
-	for _, item := range items {
-		if id, ok := item["id"].(float64); ok && int(id) >= nextID {
-			nextID = int(id) + 1
-		}
+	items, err := s.loadTimers()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	now := time.Now().Unix()
-	item := map[string]interface{}{
-		"id":         nextID,
-		"user_id":    "admin",
-		"label":      req.Label,
-		"duration":   req.Duration,
-		"end_time":   now + req.Duration,
-		"status":     0,
-		"created_at": now,
-		"reminded":   false,
+	item := Timer{
+		ID:        nextID(items, func(t Timer) int { return t.ID }),
+		UserID:    "admin",
+		Label:     req.Label,
+		Duration:  req.Duration,
+		EndTime:   now + req.Duration,
+		CreatedAt: now,
 	}
 	items = append(items, item)
 
-	data, _ := json.MarshalIndent(items, "", "  ")
-	os.WriteFile(path, data, 0644)
-
+	if err := s.saveTimers(items); err != nil {
+		writeError(w, http.StatusInternalServerError, "save failed: "+err.Error())
+		return
+	}
 	writeJSON(w, item)
 }
 
@@ -656,21 +710,19 @@ func (s *Server) handleCancelTimer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataDir := hub.DefaultDir()
-	path := filepath.Join(dataDir, "timers.json")
-	data, err := os.ReadFile(path)
+	s.timersMu.Lock()
+	defer s.timersMu.Unlock()
+
+	items, err := s.loadTimers()
 	if err != nil {
-		writeError(w, http.StatusNotFound, "no timers")
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	var items []map[string]interface{}
-	json.Unmarshal(data, &items)
-
 	found := false
-	for _, item := range items {
-		if itemID, ok := item["id"].(float64); ok && int(itemID) == id {
-			item["status"] = 2
+	for i := range items {
+		if items[i].ID == id {
+			items[i].Status = 2
 			found = true
 			break
 		}
@@ -680,8 +732,10 @@ func (s *Server) handleCancelTimer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, _ = json.MarshalIndent(items, "", "  ")
-	os.WriteFile(path, data, 0644)
+	if err := s.saveTimers(items); err != nil {
+		writeError(w, http.StatusInternalServerError, "save failed: "+err.Error())
+		return
+	}
 	writeJSON(w, map[string]string{"status": "ok"})
 }
 
@@ -754,7 +808,14 @@ func (s *Server) handleServiceRestart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request) {
-	projectDir := "/home/nanobot/.nanobot/weclaw"
+	projectDir := os.Getenv("WECLAW_PROJECT_DIR")
+	if projectDir == "" {
+		if exe, err := os.Executable(); err == nil {
+			projectDir = filepath.Dir(exe)
+		} else {
+			projectDir = "."
+		}
+	}
 
 	// Build
 	cmd := exec.Command("go", "build", "-o", filepath.Join(projectDir, "weclaw"), projectDir)
@@ -819,11 +880,6 @@ func CopyFile(dst, src string) error {
 	_, err = io.Copy(out, in)
 	return err
 }
-
-// ensure admin.go uses log and fmt
-var _ = log.Printf
-var _ = fmt.Sprintf
-var _ = io.Copy
 
 // normalizeAccountID creates a safe filename from a bot ID.
 func normalizeAccountID(raw string) string {

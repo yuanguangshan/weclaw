@@ -1,6 +1,6 @@
 {
   "default_agent": "nanobot",
-  "api_addr": "127.0.0.1:18011",
+  "api_addr": "0.0.0.0:18011",
   "save_dir": "/tmp/weclaw-media",
   "agents": {
     "Assistant": {

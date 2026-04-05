@@ -197,3 +197,37 @@ func TestIsBuiltinCommand_Podcast(t *testing.T) {
 		t.Error("/podcasting should NOT be a builtin command")
 	}
 }
+
+func TestParseCommand_DebateBuiltin(t *testing.T) {
+	h := newTestHandler()
+
+	// Test /debate alone - should not be parsed as agent name
+	names, msg := h.parseCommand("/debate AI 会取代人类吗")
+	if len(names) != 0 {
+		t.Errorf("expected no agent names, got %v", names)
+	}
+	if msg != "/debate AI 会取代人类吗" {
+		t.Errorf("expected '/debate AI 会取代人类吗', got %q", msg)
+	}
+
+	// Test /debate with agent prefix
+	names, msg = h.parseCommand("@cc /debate AI 会取代人类吗")
+	if len(names) != 1 || names[0] != "claude" {
+		t.Errorf("expected [claude], got %v", names)
+	}
+	if msg != "/debate AI 会取代人类吗" {
+		t.Errorf("expected '/debate AI 会取代人类吗', got %q", msg)
+	}
+}
+
+func TestIsBuiltinCommand_Debate(t *testing.T) {
+	if !isBuiltinCommand("/debate") {
+		t.Error("/debate should be a builtin command")
+	}
+	if !isBuiltinCommand("/debate some topic") {
+		t.Error("/debate with text should be a builtin command")
+	}
+	if isBuiltinCommand("/debating") {
+		t.Error("/debating should NOT be a builtin command")
+	}
+}

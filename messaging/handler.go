@@ -241,7 +241,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -493,6 +493,14 @@ handleBuiltinCommand:
 		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/podcast") {
 		reply := h.handlePodcast(ctx, client, msg, effectiveTrimmed, clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/debate") {
+		reply := h.handleDebate(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -1520,6 +1528,11 @@ func buildHelpText() string {
   /podcast <内容>   指定内容生成播客
   （无论当前处于哪个 agent，均会自动拦截并发送）
 
+🎭 多 Agent 辩论
+  /debate <话题>              默认两个 agent 辩论
+  /debate @a @b <话题>        指定 agent 辩论
+  示例: /debate AI 会取代人类决策吗
+
 🖥️ 终端模拟
   /sh              进入命令行模式（支持持久化目录、免前缀）
   /sh <命令>       执行单次命令（不进入模式）
@@ -2028,6 +2041,215 @@ func (h *Handler) handlePodcast(ctx context.Context, client *ilink.Client, msg i
 	}
 
 	return "✅ 已加入 NAS 直读队列，请稍后查看播客。"
+}
+
+// handleDebate orchestrates a multi-round debate between two agents on a topic.
+// Usage:
+//
+//	/debate <话题>                  — 使用默认两个 agent 辩论
+//	/debate @agent1 @agent2 <话题>  — 指定 agent 辩论
+func (h *Handler) handleDebate(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/debate"))
+	if rest == "" {
+		return "用法:\n/debate <话题> — 使用默认 agent 辩论\n/debate @agent1 @agent2 <话题> — 指定 agent 辩论\n\n示例:\n/debate AI 会取代人类决策吗\n/debate @cc @gm 远程办公是否更高效"
+	}
+
+	// Parse optional agent prefixes from rest
+	parsedNames, parsedMsg := h.parseCommand(rest)
+	topic := strings.TrimSpace(parsedMsg)
+
+	// If no topic after parsing, the entire rest is the topic
+	if topic == "" {
+		topic = rest
+		parsedNames = nil
+	}
+
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		return "辩论话题不能为空。示例: /debate AI 会取代人类决策吗"
+	}
+
+	// Determine debate participants
+	var agentNames []string
+	if len(parsedNames) >= 2 {
+		// User specified agents
+		agentNames = parsedNames[:2] // Take first two only
+	} else {
+		// Use default agents: try to get first two configured agents
+		h.mu.RLock()
+		metas := h.agentMetas
+		h.mu.RUnlock()
+
+		if len(metas) >= 2 {
+			agentNames = []string{metas[0].Name, metas[1].Name}
+		} else {
+			// Fallback: use default + try to find any other agent
+			defaultAg := h.getDefaultAgent()
+			if defaultAg == nil {
+				return "❌ 默认 agent 未就绪，请稍后重试。"
+			}
+			// Try common agents
+			candidates := []string{"claude", "codex", "gemini", "deepseek", "qwen"}
+			for _, c := range candidates {
+				if c != h.defaultName {
+					agentNames = []string{h.defaultName, c}
+					break
+				}
+			}
+			if len(agentNames) < 2 {
+				return "❌ 可用 agent 不足，至少需要两个 agent 才能辩论。"
+			}
+		}
+	}
+
+	// Validate agents are available
+	for _, name := range agentNames {
+		if _, err := h.getAgent(ctx, name); err != nil {
+			return fmt.Sprintf("❌ agent %q 不可用: %v", name, err)
+		}
+	}
+
+	// Start debate asynchronously
+	go h.runDebate(ctx, client, msg, agentNames[0], agentNames[1], topic, clientID)
+
+	return fmt.Sprintf("🎭 辩论开始！\n话题: %s\n正方: %s\n反方: %s\n\n辩论进行中，结果将陆续发送给你...", topic, agentNames[0], agentNames[1])
+}
+
+// runDebate executes the debate rounds and sends results to the user.
+func (h *Handler) runDebate(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, proAgent, conAgent, topic, clientID string) {
+	const rounds = 3
+	var debateLog strings.Builder
+
+	debateLog.WriteString(fmt.Sprintf("🎭 **辩论: %s**\n\n", topic))
+
+	for round := 1; round <= rounds; round++ {
+		// Send progress notification
+		progressMsg := fmt.Sprintf("🔄 第 %d/%d 轮辩论进行中...", round, rounds)
+		if err := SendTextReply(ctx, client, msg.FromUserID, progressMsg, msg.ContextToken, clientID); err != nil {
+			log.Printf("[debate] failed to send progress: %v", err)
+		}
+
+		// Round 1: Pro side argues first
+		var proPrompt, conPrompt string
+		if round == 1 {
+			proPrompt = fmt.Sprintf(`你现在是辩论赛的正方。请针对以下话题，提出你的核心论点和论据（3-5个要点），立场鲜明地展开论述。
+
+话题: %s
+你的立场: 正方（支持/赞同）
+
+请用清晰的逻辑、具体的例子来论证。控制在 500 字以内。`, topic)
+
+			conPrompt = fmt.Sprintf(`你现在是辩论赛的反方。以下是正方的观点，请逐一反驳，并提出你自己的核心论点。
+
+话题: %s
+正方的观点:
+%s
+
+你的立场: 反方（反对/不赞同）
+
+请有理有据地反驳并提出自己的观点。控制在 500 字以内。`, topic, "") // Will be filled after pro speaks
+		} else {
+			// Subsequent rounds: each side responds to the other
+			proPrompt = fmt.Sprintf(`辩论继续。以下是反方上一轮的发言。请针对反方的论点进行回应和反驳，并进一步强化你的观点。
+
+话题: %s
+反方的观点:
+%s
+
+请继续你的论述。控制在 400 字以内。`, topic, "")
+
+			conPrompt = fmt.Sprintf(`辩论继续。以下是正方上一轮的发言。请针对正方的论点进行回应和反驳，并进一步强化你的观点。
+
+话题: %s
+正方的观点:
+%s
+
+请继续你的论述。控制在 400 字以内。`, topic, "")
+		}
+
+		// Pro speaks
+		proAg, proErr := h.getAgent(ctx, proAgent)
+		var proReply string
+		if proErr != nil {
+			debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 ---\n[正方 %s] 出错: %v\n", round, proAgent, proErr))
+		} else {
+			proReply, proErr = proAg.Chat(ctx, msg.FromUserID+"_debate_pro", proPrompt)
+			if proErr != nil {
+				debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 ---\n[正方 %s] 出错: %v\n", round, proAgent, proErr))
+			} else {
+				debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 正方 (%s) ---\n%s\n", round, proAgent, proReply))
+			}
+		}
+
+		// Update con prompt with pro's reply
+		if proReply != "" {
+			if round == 1 {
+				conPrompt = fmt.Sprintf(`你现在是辩论赛的反方。以下是正方的观点，请逐一反驳，并提出你自己的核心论点。
+
+话题: %s
+正方的观点:
+%s
+
+你的立场: 反方（反对/不赞同）
+
+请有理有据地反驳并提出自己的观点。控制在 500 字以内。`, topic, proReply)
+			} else {
+				conPrompt = fmt.Sprintf(`辩论继续。以下是正方上一轮的发言。请针对正方的论点进行回应和反驳，并进一步强化你的观点。
+
+话题: %s
+正方的观点:
+%s
+
+请继续你的论述。控制在 400 字以内。`, topic, proReply)
+			}
+		}
+
+		// Con speaks
+		conAg, conErr := h.getAgent(ctx, conAgent)
+		var conReply string
+		if conErr != nil {
+			debateLog.WriteString(fmt.Sprintf("[反方 %s] 出错: %v\n", conAgent, conErr))
+		} else {
+			conReply, conErr = conAg.Chat(ctx, msg.FromUserID+"_debate_con", conPrompt)
+			if conErr != nil {
+				debateLog.WriteString(fmt.Sprintf("[反方 %s] 出错: %v\n", conAgent, conErr))
+			} else {
+				debateLog.WriteString(fmt.Sprintf("\n--- 第 %d 轮 反方 (%s) ---\n%s\n", round, conAgent, conReply))
+			}
+		}
+
+		// Small delay between rounds to avoid flooding
+		time.Sleep(1 * time.Second)
+	}
+
+	// Send the debate log
+	fullLog := debateLog.String()
+
+	// If the log is too long, split into multiple messages
+	const maxLen = 2000
+	if len(fullLog) <= maxLen {
+		if err := SendTextReply(ctx, client, msg.FromUserID, fullLog, msg.ContextToken, clientID); err != nil {
+			log.Printf("[debate] failed to send result: %v", err)
+		}
+	} else {
+		// Send in chunks
+		for i := 0; i < len(fullLog); i += maxLen {
+			end := i + maxLen
+			if end > len(fullLog) {
+				end = len(fullLog)
+			}
+			chunk := fullLog[i:end]
+			if err := SendTextReply(ctx, client, msg.FromUserID, chunk, msg.ContextToken, clientID); err != nil {
+				log.Printf("[debate] failed to send chunk: %v", err)
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
+	// Send completion notice
+	if err := SendTextReply(ctx, client, msg.FromUserID, "✅ 辩论结束！使用 /podcast 可以将辩论内容生成播客。", msg.ContextToken, clientID); err != nil {
+		log.Printf("[debate] failed to send completion: %v", err)
+	}
 }
 
 // handleShell processes /sh or /$ command to execute shell commands.

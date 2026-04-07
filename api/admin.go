@@ -808,41 +808,58 @@ func (s *Server) handleServiceRestart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request) {
-	projectDir := os.Getenv("WECLAW_PROJECT_DIR")
-	if projectDir == "" {
-		if exe, err := os.Executable(); err == nil {
-			projectDir = filepath.Dir(exe)
-		} else {
-			projectDir = "."
-		}
+	sourceDir := os.Getenv("WECLAW_PROJECT_DIR")
+	if sourceDir == "" {
+		writeError(w, http.StatusBadRequest, "WECLAW_PROJECT_DIR not set")
+		return
 	}
 
-	// Build
-	cmd := exec.Command("go", "build", "-o", filepath.Join(projectDir, "weclaw"), projectDir)
-	cmd.Dir = projectDir
+	// 1. 编译到临时文件，避免覆盖正在运行的二进制或污染源码树
+	tmpFile := filepath.Join(os.TempDir(), "weclaw-new")
+	os.Remove(tmpFile) // 清理可能残留的旧文件
+
+	cmd := exec.Command("go", "build", "-o", tmpFile, sourceDir)
+	cmd.Dir = sourceDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		os.Remove(tmpFile)
 		writeError(w, http.StatusInternalServerError, "build failed: "+string(output))
 		return
 	}
 
-	// Copy
-	src := filepath.Join(projectDir, "weclaw")
-	dst := "/usr/local/bin/weclaw"
-	if err := CopyFile(dst, src); err != nil {
-		writeError(w, http.StatusInternalServerError, "copy failed: "+err.Error())
-		return
-	}
-	// Make executable
-	os.Chmod(dst, 0755)
-
-	writeJSON(w, map[string]string{"status": "built, restarting"})
+	// 2. 先响应客户端，再执行 stop → replace → start
+	// 因为 stop 后连接会断开，必须在此之前发送响应
+	writeJSON(w, map[string]string{"status": "built, deploying..."})
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
+
+	// 3. 后台：停服务 → 替换二进制 → 启动服务
 	go func() {
-		time.Sleep(500 * time.Millisecond)
-		exec.Command("systemctl", "restart", "weclaw").Run()
+		// 停止服务
+		stopCmd := exec.Command("systemctl", "stop", "weclaw")
+		if out, err := stopCmd.CombinedOutput(); err != nil {
+			log.Printf("[update] stop failed: %s: %s", err, string(out))
+			return
+		}
+
+		// 替换二进制
+		dst := "/usr/local/bin/weclaw"
+		if err := CopyFile(dst, tmpFile); err != nil {
+			log.Printf("[update] copy failed: %s", err)
+			// 替换失败也要启动回来
+			exec.Command("systemctl", "start", "weclaw").Run()
+			return
+		}
+		os.Remove(tmpFile)
+
+		if err := os.Chmod(dst, 0755); err != nil {
+			log.Printf("[update] chmod failed: %s", err)
+		}
+
+		// 启动服务
+		time.Sleep(300 * time.Millisecond)
+		exec.Command("systemctl", "start", "weclaw").Run()
 	}()
 }
 

@@ -358,28 +358,28 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
   </div>
   <div class="sidebar-nav">
     <div class="nav-item active" data-page="dashboard">
-      <i class="icon">&#9632;</i><span>Dashboard</span>
+      <i class="icon">&#128202;</i><span>Dashboard</span>
     </div>
     <div class="nav-item" data-page="agents">
-      <i class="icon">&#9881;</i><span>Agents</span>
+      <i class="icon">&#129302;</i><span>Agents</span>
     </div>
     <div class="nav-item" data-page="messages">
-      <i class="icon">&#9993;</i><span>Messages</span>
+      <i class="icon">&#128172;</i><span>Messages</span>
     </div>
     <div class="nav-item" data-page="hub">
       <i class="icon">&#128193;</i><span>Hub</span>
     </div>
     <div class="nav-item" data-page="todos">
-      <i class="icon">&#9745;</i><span>Todos</span>
+      <i class="icon">&#9989;</i><span>Todos</span>
     </div>
     <div class="nav-item" data-page="timers">
-      <i class="icon">&#9202;</i><span>Timers</span>
+      <i class="icon">&#9201;</i><span>Timers</span>
     </div>
     <div class="nav-item" data-page="logs">
-      <i class="icon">&#128196;</i><span>Logs</span>
+      <i class="icon">&#128203;</i><span>Logs</span>
     </div>
     <div class="nav-item" data-page="login">
-      <i class="icon">&#128274;</i><span>Login</span>
+      <i class="icon">&#128273;</i><span>Login</span>
     </div>
   </div>
 </div>
@@ -392,7 +392,7 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
     <div class="page-header">
       <h2>Dashboard</h2>
       <div class="btn-group">
-        <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()">Refresh</button>
+        <a class="btn btn-ghost btn-sm" href="https://nanobot.want.biz/admin">nanobot管理</a>
       </div>
     </div>
     <div class="card-grid" id="dashboard-cards">
@@ -436,10 +436,10 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
           <span class="action-icon">&#9889;</span>
           <span class="action-label">Build &amp; Update</span>
         </button>
-        <button class="action-btn action-gray" onclick="refreshDashboard()">
+        <a class="action-btn action-gray" href="https://nanobot.want.biz/admin" style="text-decoration:none;">
           <span class="action-icon">&#8634;</span>
           <span class="action-label">Refresh</span>
-        </button>
+        </a>
       </div>
     </div>
     <div class="card" style="margin-top:4px;">
@@ -770,7 +770,7 @@ async function refreshDashboard() {
     const s = await apiGet('/api/status');
     const statusEl = document.getElementById('d-status');
     if (s.running) {
-      statusEl.innerHTML = '<span class="status-dot running"></span>Running';
+      statusEl.innerHTML = '<span class="status-dot running"></span>Running <span style="font-size:0.75em;color:var(--text-muted)">(' + (s.uptime || '-') + ')</span>';
       statusEl.className = 'card-value';
     } else {
       statusEl.innerHTML = '<span class="status-dot stopped"></span>Stopped';
@@ -1304,19 +1304,19 @@ function serviceRestart() {
 }
 
 function serviceUpdate() {
-  if (!confirm('Build, deploy and restart weclaw? This may take a moment.')) return;
-  toast('Building and updating...', 'info');
+  if (!confirm('Build, deploy and restart weclaw? The service will stop briefly during deployment.')) return;
+  toast('Building...', 'info');
   apiPost('/api/service/update', null).then(r => {
     toast(r.status, 'success');
   }).catch(e => {
-    // Connection lost during restart is expected
+    // Connection lost during stop/restart is expected
     if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-      toast('Build successful, restarting...', 'info');
+      toast('Deploying, service restarting...', 'info');
     } else {
       toast('Update failed: ' + e.message, 'error');
     }
   });
-  setTimeout(() => refreshDashboard(), 8000);
+  setTimeout(() => refreshDashboard(), 12000);
 }
 
 // --- Init ---

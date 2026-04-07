@@ -10696,3 +10696,641 @@ text
 | 5 | `ilink/monitor.go` | 长轮询重试策略、游标持久化、容错设计 | ~181 |
 
 建议按 **5 -> 4 -> 3 -> 1 -> 2** 的顺序阅读，由浅入深，先理解底层的容错和自举，再看中层的协作，最后攻克核心的协议适配和巨型业务逻辑。
+
+
+好的，我来对这五个核心文件进行逐一的深度代码解读。我会在每个文件的分析中，重点拆解你之前提到的**协议适配、并发模型、状态管理、容错设计**等关键技巧。
+
+---
+
+## 文件一：`agent/acp_agent.go` —— 多协议适配与流式管道设计
+
+### 1. 文件概览
+
+这是 weclaw 中最复杂的单文件（约 1400 行），实现了与 **ACP（Agent Client Protocol）兼容 AI 客户端** 的 stdio JSON-RPC 通信。它同时兼容两种协议变种：
+
+- **标准 ACP**：`claude-agent-acp`、`cursor agent`、`kimi acp` 等
+- **Codex App-Server 私有协议**：`codex app-server --listen stdio://`
+
+### 2. 技巧一：协议探测与动态路由
+
+```go
+func detectACPProtocol(command string, args []string) string {
+    base := strings.ToLower(filepath.Base(command))
+    if base == "codex" || base == "codex.exe" {
+        for _, arg := range args {
+            if arg == "app-server" {
+                return protocolCodexAppServer
+            }
+        }
+    }
+    return protocolLegacyACP
+}
+```
+
+**设计精妙之处**：
+
+- 通过检测二进制文件名和命令行参数，**在运行时决定使用哪套协议**，而不是让用户手动配置。
+- `codex-acp` 是一个标准的 ACP 封装，但 `codex app-server` 却是 Codex 原生的私有协议。这种探测机制避免了用户面对两种相似工具时的困惑。
+- 这种模式在集成多种第三方 CLI 工具时非常实用——**宁可代码复杂一点，也要让用户体验简单**。
+
+### 3. 技巧二：基于 Channel 的 JSON-RPC 多路复用
+
+`ACPAgent` 通过 `stdio` 与子进程通信，但 `Chat` 方法可能被多个 goroutine 并发调用。如何让每个调用者只拿到属于自己的响应？
+
+**核心数据结构**：
+
+```go
+type ACPAgent struct {
+    pendingMu sync.Mutex
+    pending   map[int64]chan *rpcResponse  // 请求 ID → 响应通道
+    nextID    atomic.Int64                  // 单调递增的请求 ID
+}
+```
+
+**发送请求（`call` 方法）**：
+
+```go
+id := a.nextID.Add(1)
+ch := make(chan *rpcResponse, 1)
+a.pendingMu.Lock()
+a.pending[id] = ch
+a.pendingMu.Unlock()
+
+// 写入 stdin...
+fmt.Fprintf(a.stdin, "%s\n", data)
+
+// 阻塞等待响应
+select {
+case resp := <-ch:
+    return resp.Result, nil
+}
+```
+
+**接收响应（`readLoop` 方法）**：
+
+```go
+for a.scanner.Scan() {
+    var msg rpcResponse
+    json.Unmarshal([]byte(line), &msg)
+
+    // 如果 msg.ID 存在，说明这是一个请求的响应
+    if msg.ID != nil {
+        a.pendingMu.Lock()
+        ch, ok := a.pending[*msg.ID]
+        a.pendingMu.Unlock()
+        if ok {
+            ch <- &msg  // 精准投递到对应 channel
+        }
+        continue
+    }
+
+    // 否则是服务器主动推送的通知
+    switch msg.Method {
+    case "session/update":
+        a.handleSessionUpdate(msg.Params)
+    // ...
+    }
+}
+```
+
+**为什么这是优秀的并发设计？**
+
+1. **无锁竞争**：每个请求拥有独立的 channel，`pending` map 仅在创建和销毁 channel 时加锁，读写互不阻塞。
+2. **天然的请求-响应绑定**：利用 JSON-RPC 的 `id` 字段作为 key，保证了即使在乱序响应的情况下，也能准确匹配。
+3. **统一的读取循环**：单 goroutine 读取 stdout，避免了多 goroutine 读同一个 `io.Reader` 的数据竞争问题。
+
+### 4. 技巧三：Codex 私有协议的适配层
+
+Codex App-Server 不使用标准的 `session/prompt`，而是通过 `thread/start` 和 `turn/start` 以及一系列事件通知来完成对话。
+
+**会话映射转换**：
+
+```go
+// 标准 ACP：conversationID → sessionID
+sessions map[string]string
+
+// Codex：conversationID → threadID
+threads  map[string]string
+```
+
+**响应收集的差异处理**：
+
+```go
+func (a *ACPAgent) chatCodexAppServer(...) (string, error) {
+    turnCh := make(chan *codexTurnEvent, 256)
+    a.turnCh[threadID] = turnCh
+
+    // 启动 turn，响应内容会以事件形式到达
+    go a.rpc(ctx, "turn/start", ...)
+
+    for {
+        select {
+        case evt := <-turnCh:
+            if evt.Kind == "completed" {
+                return strings.Join(textParts, ""), nil
+            }
+            textParts = append(textParts, evt.Delta)
+        }
+    }
+}
+```
+
+**事件分发器**：
+
+```go
+func (a *ACPAgent) handleCodexItemDelta(params json.RawMessage) {
+    var p struct {
+        ThreadID string `json:"threadId"`
+        Delta    string `json:"delta"`
+    }
+    json.Unmarshal(params, &p)
+    a.dispatchToTurnCh(p.ThreadID, &codexTurnEvent{Delta: p.Delta})
+}
+```
+
+**设计亮点**：
+
+- 通过 `ThreadID` 将不同协议的会话标识统一映射到内部 channel。
+- 在 `readLoop` 中，针对 Codex 特有的 `item/agentMessage/delta` 事件进行解析，再通过 `dispatchToTurnCh` 投递。
+- **对外暴露的 `Chat` 方法签名完全一致**，协议差异被封装在内部。
+
+### 5. 技巧四：Stderr 捕获与错误上下文增强
+
+子进程启动失败时，仅靠退出码很难定位问题。`ACPAgent` 捕获了 stderr 并保存最后一条有意义的错误行。
+
+```go
+type acpStderrWriter struct {
+    mu     sync.Mutex
+    last   string // 最后一条非 traceback 行
+}
+
+func (w *acpStderrWriter) Write(p []byte) (int, error) {
+    for _, line := range lines {
+        // 过滤掉 Python traceback 的缩进行
+        if !strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "Traceback") {
+            w.last = line
+        }
+    }
+    return len(p), nil
+}
+```
+
+当 `initialize` 失败时：
+
+```go
+if detail := a.stderr.LastError(); detail != "" {
+    return fmt.Errorf("agent startup failed: %s", detail)
+}
+```
+
+这使得用户看到的错误信息不再是晦涩的 "exit status 1"，而是具体的原因，比如 "connect ECONNREFUSED 127.0.0.1:4317"。
+
+---
+
+## 文件二：`messaging/handler.go` —— 巨型业务逻辑的状态机设计
+
+### 1. 文件概览
+
+这是 weclaw 的大脑，负责接收微信消息、解析命令、调度 Agent、管理会话状态。它通过清晰的状态划分和模块化的处理函数，将 2700+ 行的代码组织得井井有条。
+
+### 2. 技巧一：分层命令解析器
+
+`parseCommand` 不仅仅做简单的字符串切割，它需要处理以下复杂场景：
+
+- `@claude 你好` → 发给 claude
+- `@claude` → 切换到 claude（无消息体）
+- `@cc @cx 分析` → 广播给 claude 和 codex
+- `@claude /save report.md` → 代理命令（/save 由 weclaw 处理）
+
+**核心逻辑**：
+
+```go
+func (h *Handler) parseCommand(text string) ([]string, string) {
+    var names []string
+    rest := text
+    for {
+        rest = strings.TrimSpace(rest)
+        if !strings.HasPrefix(rest, "/") && !strings.HasPrefix(rest, "@") {
+            break
+        }
+
+        // 提取 token（到下一个空格或 @ 为止）
+        after := rest[1:]
+        idx := strings.IndexAny(after, " /@")
+        // ...
+
+        // 关键：如果是内置命令，停止解析并保留原样
+        if isBuiltinCommand("/" + token) {
+            rest = originalRest
+            break
+        }
+
+        names = append(names, h.resolveAlias(token))
+    }
+    return names, rest
+}
+```
+
+**设计价值**：
+
+- **前瞻性解析**：在提取到疑似 Agent 名称后，立刻判断它是否其实是内置命令（如 `/help`、`/hub`），避免了误判。
+- **保留原始上下文**：当检测到是内置命令时，将 `rest` 回退到 `originalRest`，确保后续的 `handleBuiltinCommand` 能够拿到完整命令。
+
+### 3. 技巧二：基于 `sync.Map` 的轻量级会话状态
+
+`Handler` 需要为每个微信用户维护独立的 Agent 会话、Shell 模式状态、最后回复缓存等。但它本身是无状态的 HTTP 服务（在概念上），这些状态完全存储在内存中。
+
+```go
+type Handler struct {
+    shellModeStates sync.Map // map[userID]*shellModeState
+    lastReplies     sync.Map // map[userID]string
+    contextTokens   sync.Map // map[userID]contextToken
+}
+```
+
+**Shell 模式状态示例**：
+
+```go
+type shellModeState struct {
+    enabled bool
+    cwd     string
+    baseDir string
+}
+```
+
+当用户发送 `/sh` 进入终端模式后：
+
+```go
+state := &shellModeState{enabled: true, cwd: cwd}
+h.shellModeStates.Store(userID, state)
+```
+
+后续所有消息都会先检查 `shellModeStates`，如果处于启用状态，则直接走 `handleShellWithState`，而不是进入常规的 Agent 路由。
+
+**为什么不用全局 `map + sync.RWMutex`？**
+
+- `sync.Map` 针对 **读多写少** 且 **key 集合稳定** 的场景做了优化。这里每个用户的状态独立，且大多数时候是读取，使用 `sync.Map` 可以避免全局锁竞争。
+
+### 4. 技巧三：Pipe 流水线模式
+
+`/hub pipe` 命令实现了一个优雅的 **Agent 链式调用**：
+
+```text
+默认 Agent 分析 → 保存到 Hub → 目标 Agent 基于保存内容分析
+```
+
+**代码实现片段**：
+
+```go
+func (h *Handler) handlePipe(...) string {
+    // 1. 获取默认 Agent 作为 source
+    sourceAgent := h.getDefaultAgent()
+    reply1, _ := h.chatWithAgent(ctx, sourceAgent, userID, message, ...)
+
+    // 2. 保存第一轮回复到 Hub
+    filename := fmt.Sprintf("pipe_%s_%s.md", timestamp, shortAgentName)
+    h.hub.Save(filename, reply1, sourceAgentName)
+
+    // 3. 构造第二步的 prompt，注入保存的内容
+    hubContext, _ := h.hub.ReadSpecific([]string{filename})
+    secondPrompt := fmt.Sprintf("请基于以下内容继续分析：\n%s", hubContext)
+
+    // 4. 发送给目标 Agent
+    targetAg, _ := h.getAgent(ctx, targetAgent)
+    reply2, _ := h.chatWithAgent(ctx, targetAg, convID, secondPrompt, ...)
+
+    return reply2
+}
+```
+
+**设计精妙之处**：
+
+- **自动命名与隔离**：文件名包含时间戳和 Agent 名，避免了多用户并发时的冲突。
+- **引用语法**：支持 `@1`（最新文件）、`@-1`（倒数第二新），让用户可以快速引用之前的上下文。
+- **失败降级**：即使 Hub 保存失败，也会降级为直接传递 `reply1` 文本，保证流程不中断。
+
+---
+
+## 文件三：`hub/hub.go` —— 文件系统即协作总线
+
+### 1. 文件概览
+
+`Hub` 将文件系统变成了多个 Agent 之间的共享白板。它不仅仅是对 `os.WriteFile` 的简单封装，而是包含了并发控制、冲突解决、元数据注入等一系列精心设计的机制。
+
+### 2. 技巧一：并发安全的文件操作
+
+`Hub` 的所有公开方法都使用 `sync.RWMutex` 保护：
+
+```go
+type Hub struct {
+    mu        sync.RWMutex
+    sharedDir string
+}
+
+func (h *Hub) Save(...) (string, error) {
+    h.mu.Lock()
+    defer h.mu.Unlock()
+    // ... 文件写入操作
+}
+
+func (h *Hub) ReadFile(filename string) (string, error) {
+    h.mu.RLock()
+    defer h.mu.RUnlock()
+    // ... 文件读取操作
+}
+```
+
+**为什么选择全局目录锁而不是文件级锁？**
+
+- **简单可靠**：在文件数量不多的情况下，目录锁足以防止竞态条件（如同时写入同名文件、读取时文件被删除）。
+- **写操作低频**：`Save` 调用频率远低于 `ReadFile`，`RWMutex` 允许多个读操作并发执行。
+
+### 3. 技巧二：文件名冲突的自动重命名
+
+这是一个非常人性化的设计：当用户尝试保存一个已存在的文件名时，`Hub` 不会报错，而是自动添加时间戳后缀。
+
+```go
+func (h *Hub) Save(filename, content, agentName string) (string, error) {
+    filePath := filepath.Join(h.sharedDir, filename)
+    if _, err := os.Stat(filePath); err == nil {
+        base := strings.TrimSuffix(filename, ".md")
+        ts := time.Now().Format("20060102-150405")
+        filename = fmt.Sprintf("%s_%s.md", base, ts)
+        filePath = filepath.Join(h.sharedDir, filename)
+    }
+    // ... 写入文件
+}
+```
+
+**用户体验收益**：
+
+- 用户无需关心文件名是否重复，可以放心地多次使用 `/save report.md`。
+- 自动生成的文件名依然保持了语义（`report_20260408-143052.md`），便于后续查找。
+
+### 4. 技巧三：YAML Frontmatter 注入
+
+`Save` 方法不仅保存内容，还会在文件头部自动添加元数据：
+
+```go
+frontmatter := fmt.Sprintf("---\nagent: %s\ntimestamp: %s\n---\n\n", agentName, timestamp)
+fullContent := frontmatter + content
+```
+
+当后续 Agent 通过 `/hub read` 读取该文件时，这些元数据会成为上下文的一部分：
+
+```markdown
+---
+agent: claude
+timestamp: 2026-04-08T06:30:00Z
+---
+
+[实际回复内容]
+```
+
+**对 AI 行为的影响**：
+
+- Agent 可以清楚地知道这段内容的来源和生成时间。
+- 在协作场景中（如 Claude 产出 → Gemini 审查），Gemini 可以据此调整评判标准。
+
+### 5. 技巧四：基于修改时间的排序
+
+`ListWithInfo` 返回按修改时间倒序排列的文件列表：
+
+```go
+sort.Slice(files, func(i, j int) bool {
+    return files[i].ModTime.After(files[j].ModTime)
+})
+```
+
+这直接支撑了 `@1`、`@-1` 等引用语法的实现，因为用户最常引用的就是**最新生成的文件**。
+
+---
+
+## 文件四：`config/detect.go` —— 守护进程环境下的智能自举
+
+### 1. 文件概览
+
+`detect.go` 负责自动发现系统中已安装的 AI 工具，并将其配置写入 `~/.weclaw/config.json`。它最大的亮点是解决了守护进程（Daemon）环境下 `PATH` 不完整的问题。
+
+### 2. 技巧一：双层 PATH 探测
+
+在 macOS/Linux 下，通过 `launchd` 或 `systemd` 启动的守护进程，其 `PATH` 环境变量通常只包含系统路径（如 `/usr/bin:/bin`），而不包含用户通过 `~/.zshrc` 添加的路径（如 `nvm` 安装的 `claude` 所在路径）。
+
+**解决方案**：
+
+```go
+func lookPath(binary string) (string, error) {
+    // 第一层：快速路径（适合前台运行）
+    if p, err := exec.LookPath(binary); err == nil {
+        return p, nil
+    }
+
+    // 第二层：登录 Shell 回退（解决守护进程 PATH 问题）
+    shell := "zsh"
+    if runtime.GOOS != "darwin" {
+        shell = "bash"
+    }
+    out, err := exec.Command(shell, "-lic", "which "+binary).Output()
+    if err != nil {
+        return "", fmt.Errorf("not found: %s", binary)
+    }
+    p := strings.TrimSpace(string(out))
+    return p, nil
+}
+```
+
+**命令详解**：
+
+- `zsh -l`：以登录 Shell 方式启动，会加载 `~/.zprofile`。
+- `-i`：交互式模式，会加载 `~/.zshrc`。
+- `-c "which claude"`：在 Shell 中执行 `which` 命令。
+
+这样，即使 `weclaw` 由 `launchd` 以极简环境启动，也能正确找到用户安装的 `claude`。
+
+### 3. 技巧二：候选者优先级设计
+
+`agentCandidates` 数组定义了探测顺序，**排在前面的优先**：
+
+```go
+var agentCandidates = []agentCandidate{
+    {Name: "claude", Binary: "claude-agent-acp", Type: "acp"},   // 优先 ACP
+    {Name: "claude", Binary: "claude", Type: "cli"},             // 降级 CLI
+    {Name: "codex", Binary: "codex-acp", Type: "acp"},
+    {Name: "codex", Binary: "codex", Args: []string{"app-server", "--listen", "stdio://"}, Type: "acp"},
+    // ...
+}
+```
+
+**探测逻辑**：
+
+```go
+for _, candidate := range agentCandidates {
+    if _, exists := cfg.Agents[candidate.Name]; exists {
+        continue  // 已配置，跳过
+    }
+    path, err := lookPath(candidate.Binary)
+    if err != nil {
+        continue  // 没找到，尝试下一个候选
+    }
+    // 找到后立即写入配置，并跳过该 Agent 名的其他候选
+    cfg.Agents[candidate.Name] = AgentConfig{...}
+    break
+}
+```
+
+### 4. 技巧三：OpenClaw 的特殊降级处理
+
+OpenClaw 同时支持 ACP 和 HTTP 两种模式，但 ACP 模式存在会话路由冲突的问题。`detect.go` 专门处理了这一情况：
+
+```go
+if agCfg, exists := cfg.Agents["openclaw"]; exists && agCfg.Type == "acp" {
+    gwURL, gwToken, _ := loadOpenclawGateway()
+    if gwURL != "" {
+        // 降级为 HTTP 模式
+        endpoint := strings.TrimRight(gwURL, "/") + "/v1/chat/completions"
+        cfg.Agents["openclaw"] = AgentConfig{
+            Type:     "http",
+            Endpoint: endpoint,
+            APIKey:   gwToken,
+        }
+        // 同时保留 ACP 作为备选（命名为 openclaw-acp）
+        cfg.Agents["openclaw-acp"] = AgentConfig{...}
+    }
+}
+```
+
+这种 **针对特定工具的适配逻辑** 虽然增加了代码复杂度，但极大地提升了开箱即用的体验。
+
+---
+
+## 文件五：`ilink/monitor.go` —— 长连接的心跳与容错模型
+
+### 1. 文件概览
+
+`Monitor` 负责通过长轮询持续接收微信消息。它需要处理网络闪断、服务端会话过期、临时故障等各种异常情况。
+
+### 2. 技巧一：指数退避重试
+
+当 `GetUpdates` 失败时，Monitor 不会立即重试，而是等待一段逐渐增长的时间。
+
+```go
+func (m *Monitor) calcBackoff() time.Duration {
+    d := initialBackoff  // 3 秒
+    for i := 1; i < m.failures; i++ {
+        d *= 2
+        if d > maxBackoff {  // 上限 60 秒
+            return maxBackoff
+        }
+    }
+    return d
+}
+```
+
+**重试循环**：
+
+```go
+for {
+    resp, err := m.client.GetUpdates(ctx, m.getUpdatesBuf)
+    if err != nil {
+        m.failures++
+        backoff := m.calcBackoff()
+        time.Sleep(backoff)
+        continue
+    }
+    m.failures = 0  // 成功后重置计数器
+    // ...
+}
+```
+
+**为什么重要？**
+
+- 防止网络抖动时疯狂重试，浪费带宽和 CPU。
+- 避免被服务端误判为恶意攻击而封禁 IP。
+
+### 3. 技巧二：游标 (Cursor) 持久化
+
+微信 iLink API 使用 `get_updates_buf` 作为消息同步的游标。Monitor 将其持久化到磁盘：
+
+```go
+type syncData struct {
+    GetUpdatesBuf string `json:"get_updates_buf"`
+}
+
+func (m *Monitor) saveBuf() {
+    data, _ := json.Marshal(syncData{GetUpdatesBuf: m.getUpdatesBuf})
+    os.WriteFile(m.bufPath, data, 0o600)
+}
+```
+
+**恢复逻辑**：
+
+```go
+func (m *Monitor) loadBuf() {
+    data, err := os.ReadFile(m.bufPath)
+    if err == nil {
+        var s syncData
+        json.Unmarshal(data, &s)
+        m.getUpdatesBuf = s.GetUpdatesBuf
+    }
+}
+```
+
+**容错意义**：
+
+- 即使 `weclaw` 进程被 kill -9 或服务器断电，重启后也不会丢失消息进度。
+- 避免了重复处理历史消息。
+
+### 4. 技巧三：会话过期的静默处理
+
+当 iLink 返回 `ErrCode == -14`（Session Expired）时，Monitor 会清空游标并重新开始同步：
+
+```go
+if resp.ErrCode == errCodeSessionExpired {
+    if m.getUpdatesBuf != "" {
+        m.getUpdatesBuf = ""
+        m.saveBuf()
+    } else {
+        // 游标已为空但依然过期 → Token 失效，提示用户重新登录
+        log.Printf("WARNING: WeChat session expired. Run `weclaw login` to re-authenticate.")
+    }
+    time.Sleep(sessionExpiredBackoff)
+    continue
+}
+```
+
+**设计意图**：
+
+- **游标过期**（常见于长时间未连接）可以通过清空游标自动恢复。
+- **Token 彻底失效**则提示用户干预，而不是无限重试。
+
+### 5. 技巧四：消息处理的异步化
+
+```go
+for _, msg := range resp.Msgs {
+    go m.handler(ctx, m.client, msg)  // 每个消息启动一个 goroutine
+}
+```
+
+这样设计的好处是：
+
+- **不阻塞长轮询循环**：处理一条消息可能需要调用 AI Agent（耗时几秒到几十秒），如果同步处理，会导致后续消息积压。
+- **利用 Go 的并发优势**：多个消息可以同时被处理，提高吞吐量。
+
+---
+
+## 总结：五个文件串联的架构智慧
+
+| 文件 | 核心技巧 | 工程价值 |
+|------|----------|----------|
+| `acp_agent.go` | 协议探测 + Channel 多路复用 + Stderr 捕获 | 统一多种 AI 后端接口，提供一致的调用体验 |
+| `handler.go` | 分层命令解析 + sync.Map 状态 + Pipe 流水线 | 管理复杂的用户交互，实现多 Agent 协作 |
+| `hub.go` | 并发文件锁 + 冲突自动重命名 + 元数据注入 | 用最简单的文件系统实现可靠的 Agent 间通信 |
+| `detect.go` | 双层 PATH 探测 + 候选者优先级 | 解决守护进程环境配置问题，实现开箱即用 |
+| `monitor.go` | 指数退避 + 游标持久化 + 异步处理 | 保障长连接稳定可靠，具备生产级容错能力 |
+
+建议你在研读时，将这几个文件的技巧应用到自己的项目中：
+
+- 需要对接多个相似但略有差异的第三方服务？参考 `acp_agent.go` 的协议探测。
+- 需要维护用户会话状态？参考 `handler.go` 的 `sync.Map` 用法。
+- 需要跨进程/跨服务共享数据？参考 `hub.go` 的文件系统协作模式。
+- 编写需要后台运行的服务？参考 `monitor.go` 的重试与持久化策略。

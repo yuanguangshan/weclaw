@@ -226,17 +226,20 @@ func (h *Handler) runSequentialStep(ctx context.Context, userID string, step *Wo
 
 	stepResults[step.Index] = reply
 
+	stepSaved := false
 	if step.SaveName != "" {
 		savedName, saveErr := h.hub.Save(step.SaveName, reply, step.Agent)
 		if saveErr != nil {
 			sendMsg(fmt.Sprintf("⚠️ 步骤 %d 保存失败: %v", step.Index, saveErr))
 		} else {
 			sendMsg(fmt.Sprintf("✅ 步骤 %d (%s) 完成，已保存: %s", step.Index, step.Agent, savedName))
-			return
+			stepSaved = true
 		}
 	}
 
-	sendMsg(fmt.Sprintf("✅ 步骤 %d (%s) 完成\n%s", step.Index, step.Agent, truncate(reply, 300)))
+	if !stepSaved {
+		sendMsg(fmt.Sprintf("✅ 步骤 %d (%s) 完成\n%s", step.Index, step.Agent, truncate(reply, 300)))
+	}
 }
 
 // runParallelStep executes a parallel step with multiple branches.
@@ -318,23 +321,29 @@ func (h *Handler) runParallelStep(ctx context.Context, userID string, step *Work
 	stepResults[step.Index] = combined
 
 	// Save if requested
+	stepSaved := false
 	if step.SaveName != "" && combined != "" {
 		savedName, saveErr := h.hub.Save(step.SaveName, combined, "workflow-step"+fmt.Sprint(step.Index))
 		if saveErr != nil {
 			sendMsg(fmt.Sprintf("⚠️ 步骤 %d 保存失败: %v", step.Index, saveErr))
 		} else {
 			sendMsg(fmt.Sprintf("✅ 步骤 %d (parallel, %d/%d 成功)，已保存: %s", step.Index, len(allContent), len(step.Parallel), savedName))
-			if len(branchErrors) > 0 {
-				sendMsg("⚠️ 部分分支失败:\n" + strings.Join(branchErrors, "\n"))
-			}
-			return
+			stepSaved = true
 		}
 	}
 
+	// Report branch errors if any
 	if len(branchErrors) > 0 {
-		sendMsg(fmt.Sprintf("⚠️ 步骤 %d 完成 (%d/%d 成功)\n错误:\n%s", step.Index, len(allContent), len(step.Parallel), strings.Join(branchErrors, "\n")))
-	} else {
-		sendMsg(fmt.Sprintf("✅ 步骤 %d (parallel, %d 分支全部成功)\n%s", step.Index, len(step.Parallel), truncate(combined, 300)))
+		sendMsg("⚠️ 部分分支失败:\n" + strings.Join(branchErrors, "\n"))
+	}
+
+	// Only send success message if not already sent during save
+	if !stepSaved {
+		if len(branchErrors) > 0 {
+			sendMsg(fmt.Sprintf("⚠️ 步骤 %d 完成 (%d/%d 成功)", step.Index, len(allContent), len(step.Parallel)))
+		} else {
+			sendMsg(fmt.Sprintf("✅ 步骤 %d (parallel, %d 分支全部成功)\n%s", step.Index, len(step.Parallel), truncate(combined, 300)))
+		}
 	}
 }
 

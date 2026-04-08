@@ -1,62 +1,65 @@
 # Project Documentation
 
-- **Generated at:** 2026-04-09 00:01:50
-- **Root Dir:** `/Users/ygs/ygs/weclaw`
-- **File Count:** 44
-- **Total Size:** 337.54 KB
+- **Generated at:** 2026-04-09 04:31:01
+- **Root Dir:** `.`
+- **File Count:** 45
+- **Total Lines:** 13744
+- **Total Size:** 376.15 KB
 
 <a name="toc"></a>
 ## 📂 扫描目录
-- [📄 agent/acp_agent.go](#agentacp_agentgo) (1342 lines, 34.06 KB)
-- [📄 agent/agent.go](#agentagentgo) (136 lines, 4.45 KB)
-- [📄 agent/cli_agent.go](#agentcli_agentgo) (304 lines, 8.77 KB)
-- [📄 agent/env_test.go](#agentenv_testgo) (62 lines, 1.50 KB)
-- [📄 agent/http_agent.go](#agenthttp_agentgo) (194 lines, 5.23 KB)
-- [📄 api/admin.go](#apiadmingo) (908 lines, 22.05 KB)
-- [📄 api/server.go](#apiservergo) (176 lines, 5.30 KB)
-- [📄 cmd/login.go](#cmdlogingo) (30 lines, 0.56 KB)
-- [📄 cmd/proc_unix.go](#cmdproc_unixgo) (12 lines, 0.16 KB)
-- [📄 cmd/proc_windows.go](#cmdproc_windowsgo) (9 lines, 0.15 KB)
-- [📄 cmd/restart.go](#cmdrestartgo) (40 lines, 0.72 KB)
-- [📄 cmd/root.go](#cmdrootgo) (27 lines, 0.50 KB)
-- [📄 cmd/send.go](#cmdsendgo) (68 lines, 1.84 KB)
-- [📄 cmd/start.go](#cmdstartgo) (453 lines, 11.86 KB)
-- [📄 cmd/status.go](#cmdstatusgo) (31 lines, 0.56 KB)
-- [📄 cmd/stop.go](#cmdstopgo) (21 lines, 0.31 KB)
-- [📄 cmd/update.go](#cmdupdatego) (207 lines, 4.63 KB)
-- [📄 config/config.go](#configconfiggo) (141 lines, 4.21 KB)
-- [📄 config/config_test.go](#configconfig_testgo) (119 lines, 2.53 KB)
-- [📄 config/detect.go](#configdetectgo) (281 lines, 9.21 KB)
-- [📄 config/detect_test.go](#configdetect_testgo) (82 lines, 2.50 KB)
-- [📄 hub/hub.go](#hubhubgo) (414 lines, 10.01 KB)
-- [📄 hub/hub_test.go](#hubhub_testgo) (406 lines, 8.80 KB)
-- [📄 ilink/auth.go](#ilinkauthgo) (177 lines, 3.96 KB)
-- [📄 ilink/client.go](#ilinkclientgo) (229 lines, 5.85 KB)
-- [📄 ilink/monitor.go](#ilinkmonitorgo) (181 lines, 4.60 KB)
-- [📄 ilink/types.go](#ilinktypesgo) (219 lines, 6.62 KB)
-- [📄 main.go](#maingo) (7 lines, 0.09 KB)
-- [📄 messaging/attachment.go](#messagingattachmentgo) (127 lines, 2.90 KB)
-- [📄 messaging/attachment_test.go](#messagingattachment_testgo) (100 lines, 2.96 KB)
-- [📄 messaging/cdn.go](#messagingcdngo) (232 lines, 6.56 KB)
-- [📄 messaging/handler.go](#messaginghandlergo) (2735 lines, 89.41 KB)
-- [📄 messaging/handler_test.go](#messaginghandler_testgo) (233 lines, 6.39 KB)
-- [📄 messaging/linkhoard.go](#messaginglinkhoardgo) (326 lines, 8.66 KB)
-- [📄 messaging/markdown.go](#messagingmarkdowngo) (103 lines, 3.01 KB)
-- [📄 messaging/media.go](#messagingmediago) (213 lines, 5.31 KB)
-- [📄 messaging/media_test.go](#messagingmedia_testgo) (73 lines, 1.81 KB)
-- [📄 messaging/sender.go](#messagingsendergo) (86 lines, 2.21 KB)
-- [📄 messaging/timer.go](#messagingtimergo) (436 lines, 10.94 KB)
-- [📄 messaging/timer_test.go](#messagingtimer_testgo) (35 lines, 0.84 KB)
-- [📄 messaging/todo.go](#messagingtodogo) (415 lines, 9.78 KB)
-- [📄 messaging/workflow.go](#messagingworkflowgo) (605 lines, 18.10 KB)
-- [📄 messaging/workflow_test.go](#messagingworkflow_testgo) (310 lines, 7.58 KB)
-- [📄 web/embed.go](#webembedgo) (6 lines, 0.07 KB)
+- [agent/acp_agent.go](#file-agent-acp_agent.go) (1342 lines, 34.06 KB)
+- [agent/agent.go](#file-agent-agent.go) (136 lines, 4.45 KB)
+- [agent/cli_agent.go](#file-agent-cli_agent.go) (304 lines, 8.77 KB)
+- [agent/env_test.go](#file-agent-env_test.go) (62 lines, 1.50 KB)
+- [agent/http_agent.go](#file-agent-http_agent.go) (194 lines, 5.23 KB)
+- [api/admin.go](#file-api-admin.go) (908 lines, 22.05 KB)
+- [api/server.go](#file-api-server.go) (444 lines, 11.72 KB)
+- [cmd/login.go](#file-cmd-login.go) (30 lines, 0.56 KB)
+- [cmd/proc_unix.go](#file-cmd-proc_unix.go) (12 lines, 0.16 KB)
+- [cmd/proc_windows.go](#file-cmd-proc_windows.go) (9 lines, 0.15 KB)
+- [cmd/restart.go](#file-cmd-restart.go) (40 lines, 0.72 KB)
+- [cmd/root.go](#file-cmd-root.go) (27 lines, 0.50 KB)
+- [cmd/send.go](#file-cmd-send.go) (68 lines, 1.84 KB)
+- [cmd/start.go](#file-cmd-start.go) (469 lines, 12.33 KB)
+- [cmd/status.go](#file-cmd-status.go) (31 lines, 0.56 KB)
+- [cmd/stop.go](#file-cmd-stop.go) (21 lines, 0.31 KB)
+- [cmd/update.go](#file-cmd-update.go) (207 lines, 4.63 KB)
+- [config/config.go](#file-config-config.go) (141 lines, 4.21 KB)
+- [config/config_test.go](#file-config-config_test.go) (119 lines, 2.53 KB)
+- [config/detect.go](#file-config-detect.go) (281 lines, 9.21 KB)
+- [config/detect_test.go](#file-config-detect_test.go) (82 lines, 2.50 KB)
+- [hub/hub.go](#file-hub-hub.go) (414 lines, 10.01 KB)
+- [hub/hub_test.go](#file-hub-hub_test.go) (406 lines, 8.80 KB)
+- [ilink/auth.go](#file-ilink-auth.go) (177 lines, 3.96 KB)
+- [ilink/client.go](#file-ilink-client.go) (229 lines, 5.85 KB)
+- [ilink/monitor.go](#file-ilink-monitor.go) (181 lines, 4.60 KB)
+- [ilink/types.go](#file-ilink-types.go) (219 lines, 6.62 KB)
+- [main.go](#file-main.go) (7 lines, 0.09 KB)
+- [messaging/attachment.go](#file-messaging-attachment.go) (127 lines, 2.90 KB)
+- [messaging/attachment_test.go](#file-messaging-attachment_test.go) (100 lines, 2.96 KB)
+- [messaging/cdn.go](#file-messaging-cdn.go) (232 lines, 6.56 KB)
+- [messaging/cron.go](#file-messaging-cron.go) (381 lines, 8.35 KB)
+- [messaging/handler.go](#file-messaging-handler.go) (3503 lines, 112.79 KB)
+- [messaging/handler_test.go](#file-messaging-handler_test.go) (233 lines, 6.39 KB)
+- [messaging/linkhoard.go](#file-messaging-linkhoard.go) (326 lines, 8.66 KB)
+- [messaging/markdown.go](#file-messaging-markdown.go) (103 lines, 3.01 KB)
+- [messaging/media.go](#file-messaging-media.go) (213 lines, 5.31 KB)
+- [messaging/media_test.go](#file-messaging-media_test.go) (73 lines, 1.81 KB)
+- [messaging/sender.go](#file-messaging-sender.go) (86 lines, 2.21 KB)
+- [messaging/timer.go](#file-messaging-timer.go) (436 lines, 10.94 KB)
+- [messaging/timer_test.go](#file-messaging-timer_test.go) (35 lines, 0.84 KB)
+- [messaging/todo.go](#file-messaging-todo.go) (415 lines, 9.78 KB)
+- [messaging/workflow.go](#file-messaging-workflow.go) (605 lines, 18.10 KB)
+- [messaging/workflow_test.go](#file-messaging-workflow_test.go) (310 lines, 7.58 KB)
+- [web/embed.go](#file-web-embed.go) (6 lines, 0.07 KB)
 
 ---
 
-## agent/acp_agent.go
+<a name="file-agent-acp_agent.go"></a>
+## 📄 agent/acp_agent.go
 
-```go
+````go
 package agent
 
 import (
@@ -1400,13 +1403,14 @@ func (w *acpStderrWriter) LastError() string {
 	return s
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/agent.go
+<a name="file-agent-agent.go"></a>
+## 📄 agent/agent.go
 
-```go
+````go
 package agent
 
 import (
@@ -1544,13 +1548,14 @@ type Agent interface {
 	SetProgressCallback(callback ProgressCallback)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/cli_agent.go
+<a name="file-agent-cli_agent.go"></a>
+## 📄 agent/cli_agent.go
 
-```go
+````go
 package agent
 
 import (
@@ -1856,13 +1861,14 @@ func (a *CLIAgent) chatCodex(ctx context.Context, message string) (string, error
 	return result, nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/env_test.go
+<a name="file-agent-env_test.go"></a>
+## 📄 agent/env_test.go
 
-```go
+````go
 package agent
 
 import (
@@ -1926,13 +1932,14 @@ func TestMergeEnvOverridesExistingKeyWithEmptyValue(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## agent/http_agent.go
+<a name="file-agent-http_agent.go"></a>
+## 📄 agent/http_agent.go
 
-```go
+````go
 package agent
 
 import (
@@ -2128,13 +2135,14 @@ func (a *HTTPAgent) buildMessages(conversationID string, message string) []ChatM
 	return messages
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## api/admin.go
+<a name="file-api-admin.go"></a>
+## 📄 api/admin.go
 
-```go
+````go
 package api
 
 import (
@@ -3044,13 +3052,14 @@ func normalizeAccountID(raw string) string {
 	return s
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## api/server.go
+<a name="file-api-server.go"></a>
+## 📄 api/server.go
 
-```go
+````go
 package api
 
 import (
@@ -3059,7 +3068,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/fastclaw-ai/weclaw/ilink"
 	"github.com/fastclaw-ai/weclaw/messaging"
@@ -3141,6 +3154,13 @@ func (s *Server) Run(ctx context.Context) error {
 	mux.HandleFunc("GET /api/timers", s.handleListTimers)
 	mux.HandleFunc("POST /api/timers", s.handleAddTimer)
 	mux.HandleFunc("PUT /api/timers/{id}/cancel", s.handleCancelTimer)
+
+	// Admin API - Cron Jobs
+	mux.HandleFunc("GET /api/cron", s.handleListCronJobs)
+	mux.HandleFunc("POST /api/cron", s.handleAddCronJob)
+	mux.HandleFunc("DELETE /api/cron/{id}", s.handleDeleteCronJob)
+	mux.HandleFunc("PUT /api/cron/{id}/enable", s.handleEnableCronJob)
+	mux.HandleFunc("PUT /api/cron/{id}/disable", s.handleDisableCronJob)
 
 	// Admin UI
 	mux.HandleFunc("/admin", s.handleAdminUI)
@@ -3228,13 +3248,271 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-```
+// Cron Job types
+type CronJob struct {
+	ID        string       `json:"id"`
+	UserID    string       `json:"user_id"`
+	CronExpr  string       `json:"cron_expr"`
+	Command   CronCommand  `json:"command"`
+	Enabled   bool         `json:"enabled"`
+	CreatedAt int64        `json:"created_at"`
+	NextRun   int64        `json:"next_run,omitempty"`
+}
+
+type CronCommand struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	Agent   string `json:"agent,omitempty"`
+}
+
+type CronJobsFile struct {
+	Jobs []*CronJob `json:"jobs"`
+}
+
+// cronDataDir returns the directory where cron jobs are stored
+func cronDataDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "/tmp/.weclaw"
+	}
+	return filepath.Join(home, ".weclaw")
+}
+
+// loadCronJobs loads all cron jobs from disk
+func loadCronJobs() (*CronJobsFile, error) {
+	dataDir := cronDataDir()
+	data, err := os.ReadFile(filepath.Join(dataDir, "cron_jobs.json"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &CronJobsFile{Jobs: []*CronJob{}}, nil
+		}
+		return nil, err
+	}
+
+	var result CronJobsFile
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// saveCronJobs saves all cron jobs to disk
+func saveCronJobs(jobs *CronJobsFile) error {
+	dataDir := cronDataDir()
+	data, err := json.MarshalIndent(jobs, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(dataDir, "cron_jobs.json")
+	tmpPath := filePath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpPath, filePath)
+}
+
+// handleListCronJobs returns all cron jobs
+func (s *Server) handleListCronJobs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(jobs.Jobs)
+}
+
+// handleAddCronJob adds a new cron job
+func (s *Server) handleAddCronJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var job CronJob
+	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
+		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if job.CronExpr == "" {
+		http.Error(w, `"cron_expr" is required`, http.StatusBadRequest)
+		return
+	}
+	if job.Command.Content == "" {
+		http.Error(w, `"command.content" is required`, http.StatusBadRequest)
+		return
+	}
+	if job.Command.Type == "" {
+		job.Command.Type = "text"
+	}
+
+	// Generate ID if not provided
+	if job.ID == "" {
+		job.ID = fmt.Sprintf("cron_%d", time.Now().UnixNano())
+	}
+
+	// Set created at if not provided
+	if job.CreatedAt == 0 {
+		job.CreatedAt = time.Now().Unix()
+	}
+
+	// Load existing jobs
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Add new job
+	jobs.Jobs = append(jobs.Jobs, &job)
+
+	// Save
+	if err := saveCronJobs(jobs); err != nil {
+		http.Error(w, "Failed to save cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"job":    job,
+	})
+}
+
+// handleDeleteCronJob deletes a cron job
+func (s *Server) handleDeleteCronJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "DELETE only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract ID from URL path
+	id := strings.TrimPrefix(r.URL.Path, "/api/cron/")
+	if id == "" {
+		http.Error(w, "job ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Load existing jobs
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Find and remove job
+	found := false
+	var filtered []*CronJob
+	for _, j := range jobs.Jobs {
+		if j.ID == id {
+			found = true
+		} else {
+			filtered = append(filtered, j)
+		}
+	}
+
+	if !found {
+		http.Error(w, "job not found", http.StatusNotFound)
+		return
+	}
+
+	jobs.Jobs = filtered
+
+	// Save
+	if err := saveCronJobs(jobs); err != nil {
+		http.Error(w, "Failed to save cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleEnableCronJob enables a cron job
+func (s *Server) handleEnableCronJob(w http.ResponseWriter, r *http.Request) {
+	s.updateCronJobEnabled(w, r, true)
+}
+
+// handleDisableCronJob disables a cron job
+func (s *Server) handleDisableCronJob(w http.ResponseWriter, r *http.Request) {
+	s.updateCronJobEnabled(w, r, false)
+}
+
+// updateCronJobEnabled updates the enabled status of a cron job
+func (s *Server) updateCronJobEnabled(w http.ResponseWriter, r *http.Request, enabled bool) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "PUT only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract ID from URL path
+	id := strings.TrimPrefix(r.URL.Path, "/api/cron/")
+	id = strings.TrimSuffix(id, "/enable")
+	id = strings.TrimSuffix(id, "/disable")
+	if id == "" {
+		http.Error(w, "job ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Load existing jobs
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Find and update job
+	found := false
+	for _, j := range jobs.Jobs {
+		if j.ID == id {
+			j.Enabled = enabled
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		http.Error(w, "job not found", http.StatusNotFound)
+		return
+	}
+
+	// Save
+	if err := saveCronJobs(jobs); err != nil {
+		http.Error(w, "Failed to save cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	status := "disabled"
+	if enabled {
+		status = "enabled"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+		"job":    status,
+	})
+}
+
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/login.go
+<a name="file-cmd-login.go"></a>
+## 📄 cmd/login.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3266,13 +3544,14 @@ var loginCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/proc_unix.go
+<a name="file-cmd-proc_unix.go"></a>
+## 📄 cmd/proc_unix.go
 
-```go
+````go
 //go:build !windows
 
 package cmd
@@ -3286,13 +3565,14 @@ func setSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/proc_windows.go
+<a name="file-cmd-proc_windows.go"></a>
+## 📄 cmd/proc_windows.go
 
-```go
+````go
 //go:build windows
 
 package cmd
@@ -3303,13 +3583,14 @@ func setSysProcAttr(_ *exec.Cmd) {
 	// No Setsid on Windows — process is already detached via Start()
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/restart.go
+<a name="file-cmd-restart.go"></a>
+## 📄 cmd/restart.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3351,13 +3632,14 @@ var restartCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/root.go
+<a name="file-cmd-root.go"></a>
+## 📄 cmd/root.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3386,13 +3668,14 @@ func Execute() {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/send.go
+<a name="file-cmd-send.go"></a>
+## 📄 cmd/send.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3462,13 +3745,14 @@ var sendCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/start.go
+<a name="file-cmd-start.go"></a>
+## 📄 cmd/start.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3634,6 +3918,22 @@ func runStart(cmd *cobra.Command, args []string) error {
 	handler.SetClients(clients)
 	handler.StartTodoScheduler(ctx)
 	handler.StartTimerScheduler(ctx)
+
+	// Initialize and start cron manager
+	// Use first client for cron job execution
+	var cronClient *ilink.Client
+	if len(clients) > 0 {
+		cronClient = clients[0]
+	}
+	cronManager := messaging.NewCronManager(weclawDir(), cronClient, handler)
+	if err := cronManager.Start(); err != nil {
+		log.Printf("Failed to start cron manager: %v", err)
+	} else {
+		handler.SetCronManager(cronManager)
+		log.Println("Cron manager started")
+	}
+	// Stop cron manager on exit
+	defer cronManager.Stop()
 
 	// Resolve API addr: flag > env/config > default
 	apiAddr := cfg.APIAddr // already includes env override from loadEnv
@@ -3923,13 +4223,14 @@ func stopAllWeclaw() {
 	time.Sleep(500 * time.Millisecond)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/status.go
+<a name="file-cmd-status.go"></a>
+## 📄 cmd/status.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3962,13 +4263,14 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/stop.go
+<a name="file-cmd-stop.go"></a>
+## 📄 cmd/stop.go
 
-```go
+````go
 package cmd
 
 import (
@@ -3991,13 +4293,14 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## cmd/update.go
+<a name="file-cmd-update.go"></a>
+## 📄 cmd/update.go
 
-```go
+````go
 package cmd
 
 import (
@@ -4206,13 +4509,14 @@ func resolveSymlink(path string) (string, error) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/config.go
+<a name="file-config-config.go"></a>
+## 📄 config/config.go
 
-```go
+````go
 package config
 
 import (
@@ -4355,13 +4659,14 @@ func Save(cfg *Config) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/config_test.go
+<a name="file-config-config_test.go"></a>
+## 📄 config/config_test.go
 
-```go
+````go
 package config
 
 import (
@@ -4482,13 +4787,14 @@ func TestLoadEnvOverridesTopLevelOnly(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/detect.go
+<a name="file-config-detect.go"></a>
+## 📄 config/detect.go
 
-```go
+````go
 package config
 
 import (
@@ -4771,13 +5077,14 @@ func lookPath(binary string) (string, error) {
 	return p, nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## config/detect_test.go
+<a name="file-config-detect_test.go"></a>
+## 📄 config/detect_test.go
 
-```go
+````go
 package config
 
 import (
@@ -4861,13 +5168,14 @@ func TestDetectAndConfigure_StrippedPath(t *testing.T) {
 	t.Logf("detected claude: type=%s, command=%s", agent.Type, agent.Command)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## hub/hub.go
+<a name="file-hub-hub.go"></a>
+## 📄 hub/hub.go
 
-```go
+````go
 package hub
 
 import (
@@ -5283,13 +5591,14 @@ func sanitizeFilename(name string) string {
 	return name
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## hub/hub_test.go
+<a name="file-hub-hub_test.go"></a>
+## 📄 hub/hub_test.go
 
-```go
+````go
 package hub
 
 import (
@@ -5697,13 +6006,14 @@ func TestHub_SizeLimit(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/auth.go
+<a name="file-ilink-auth.go"></a>
+## 📄 ilink/auth.go
 
-```go
+````go
 package ilink
 
 import (
@@ -5882,13 +6192,14 @@ func CredentialsPath() (string, error) {
 	return AccountsDir()
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/client.go
+<a name="file-ilink-client.go"></a>
+## 📄 ilink/client.go
 
-```go
+````go
 package ilink
 
 import (
@@ -6119,13 +6430,14 @@ func generateWechatUIN() string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/monitor.go
+<a name="file-ilink-monitor.go"></a>
+## 📄 ilink/monitor.go
 
-```go
+````go
 package ilink
 
 import (
@@ -6308,13 +6620,14 @@ func FormatMessageSummary(msg WeixinMessage) string {
 	return fmt.Sprintf("from=%s type=%d state=%d text=%q", msg.FromUserID, msg.MessageType, msg.MessageState, text)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## ilink/types.go
+<a name="file-ilink-types.go"></a>
+## 📄 ilink/types.go
 
-```go
+````go
 package ilink
 
 // Message types
@@ -6535,13 +6848,14 @@ type SendTypingResponse struct {
 	ErrMsg string `json:"errmsg,omitempty"`
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## main.go
+<a name="file-main.go"></a>
+## 📄 main.go
 
-```go
+````go
 package main
 
 import "github.com/fastclaw-ai/weclaw/cmd"
@@ -6550,13 +6864,14 @@ func main() {
 	cmd.Execute()
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/attachment.go
+<a name="file-messaging-attachment.go"></a>
+## 📄 messaging/attachment.go
 
-```go
+````go
 package messaging
 
 import (
@@ -6685,13 +7000,14 @@ func canonicalizePath(path string, mustExist bool) (string, error) {
 	return filepath.Clean(absPath), nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/attachment_test.go
+<a name="file-messaging-attachment_test.go"></a>
+## 📄 messaging/attachment_test.go
 
-```go
+````go
 package messaging
 
 import (
@@ -6793,13 +7109,14 @@ func TestRewriteReplyWithAttachmentResults(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/cdn.go
+<a name="file-messaging-cdn.go"></a>
+## 📄 messaging/cdn.go
 
-```go
+````go
 package messaging
 
 import (
@@ -7033,13 +7350,404 @@ func aesECBPaddedSize(plaintextSize int) int {
 	return (plaintextSize/aes.BlockSize + 1) * aes.BlockSize
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/handler.go
+<a name="file-messaging-cron.go"></a>
+## 📄 messaging/cron.go
 
-```go
+````go
+package messaging
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/fastclaw-ai/weclaw/ilink"
+	"github.com/robfig/cron/v3"
+)
+
+// CronJob represents a scheduled task.
+type CronJob struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	CronExpr  string    `json:"cron_expr"`
+	Command   CronCommand `json:"command"`
+	Enabled   bool      `json:"enabled"`
+	CreatedAt int64     `json:"created_at"`
+	NextRun   int64     `json:"next_run,omitempty"`
+}
+
+// CronCommand represents the command to execute when cron triggers.
+type CronCommand struct {
+	Type    string `json:"type"`    // text, workflow, agent
+	Content string `json:"content"` // message text or workflow DSL
+	Agent   string `json:"agent,omitempty"`   // optional agent for text type
+}
+
+// CronStore manages cron job persistence.
+type CronStore struct {
+	filePath string
+	mu       sync.RWMutex
+}
+
+// NewCronStore creates a new CronStore.
+func NewCronStore(dataDir string) *CronStore {
+	return &CronStore{
+		filePath: filepath.Join(dataDir, "cron_jobs.json"),
+	}
+}
+
+// LoadAll loads all cron jobs from disk.
+func (s *CronStore) LoadAll() ([]*CronJob, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	data, err := os.ReadFile(s.filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []*CronJob{}, nil
+		}
+		return nil, err
+	}
+
+	var result struct {
+		Jobs []*CronJob `json:"jobs"`
+	}
+
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+
+	return result.Jobs, nil
+}
+
+// SaveAll saves all cron jobs to disk.
+func (s *CronStore) SaveAll(jobs []*CronJob) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	data := struct {
+		Jobs []*CronJob `json:"jobs"`
+	}{
+		Jobs: jobs,
+	}
+
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// Write to temp file first, then rename for atomicity
+	tmpPath := s.filePath + ".tmp"
+	if err := os.WriteFile(tmpPath, jsonData, 0600); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpPath, s.filePath)
+}
+
+// Add adds a new cron job.
+func (s *CronStore) Add(job *CronJob) error {
+	jobs, err := s.LoadAll()
+	if err != nil {
+		return err
+	}
+
+	jobs = append(jobs, job)
+	return s.SaveAll(jobs)
+}
+
+// Remove removes a cron job by ID.
+func (s *CronStore) Remove(id string) error {
+	jobs, err := s.LoadAll()
+	if err != nil {
+		return err
+	}
+
+	var filtered []*CronJob
+	for _, j := range jobs {
+		if j.ID != id {
+			filtered = append(filtered, j)
+		}
+	}
+
+	return s.SaveAll(filtered)
+}
+
+// Update updates a cron job.
+func (s *CronStore) Update(job *CronJob) error {
+	jobs, err := s.LoadAll()
+	if err != nil {
+		return err
+	}
+
+	for i, j := range jobs {
+		if j.ID == job.ID {
+			jobs[i] = job
+			return s.SaveAll(jobs)
+		}
+	}
+
+	return fmt.Errorf("job %q not found", job.ID)
+}
+
+// GetByUserID returns all jobs for a specific user.
+func (s *CronStore) GetByUserID(userID string) ([]*CronJob, error) {
+	jobs, err := s.LoadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*CronJob
+	for _, j := range jobs {
+		if j.UserID == userID {
+			result = append(result, j)
+		}
+	}
+
+	return result, nil
+}
+
+// CronManager manages scheduled cron jobs.
+type CronManager struct {
+	cron    *cron.Cron
+	jobs    map[string]cron.EntryID
+	store   *CronStore
+	client  *ilink.Client
+	handler *Handler
+	mu      sync.RWMutex
+}
+
+// NewCronManager creates a new CronManager.
+func NewCronManager(dataDir string, client *ilink.Client, handler *Handler) *CronManager {
+	// Use cron with seconds precision and local timezone
+	return &CronManager{
+		cron:    cron.New(cron.WithSeconds()),
+		jobs:    make(map[string]cron.EntryID),
+		store:   NewCronStore(dataDir),
+		client:  client,
+		handler: handler,
+	}
+}
+
+// Start starts the cron scheduler and loads existing jobs.
+func (cm *CronManager) Start() error {
+	cm.cron.Start()
+
+	// Load and schedule existing jobs
+	jobs, err := cm.store.LoadAll()
+	if err != nil {
+		log.Printf("[cron] failed to load jobs: %v", err)
+		return err
+	}
+
+	for _, job := range jobs {
+		if job.Enabled {
+			if err := cm.scheduleJob(job); err != nil {
+				log.Printf("[cron] failed to schedule job %s: %v", job.ID, err)
+			}
+		}
+	}
+
+	log.Printf("[cron] started with %d jobs", len(cm.jobs))
+	return nil
+}
+
+// Stop stops the cron scheduler.
+func (cm *CronManager) Stop() {
+	cm.cron.Stop()
+	log.Printf("[cron] stopped")
+}
+
+// AddJob adds a new cron job.
+func (cm *CronManager) AddJob(job *CronJob) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Save to store first
+	if err := cm.store.Add(job); err != nil {
+		return err
+	}
+
+	// Schedule if enabled
+	if job.Enabled {
+		return cm.scheduleJob(job)
+	}
+
+	return nil
+}
+
+// RemoveJob removes a cron job.
+func (cm *CronManager) RemoveJob(id string) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Remove from cron
+	if entryID, ok := cm.jobs[id]; ok {
+		cm.cron.Remove(entryID)
+		delete(cm.jobs, id)
+	}
+
+	// Remove from store
+	return cm.store.Remove(id)
+}
+
+// UpdateJob updates a cron job.
+func (cm *CronManager) UpdateJob(job *CronJob) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Update in store
+	if err := cm.store.Update(job); err != nil {
+		return err
+	}
+
+	// Reschedule
+	if entryID, ok := cm.jobs[job.ID]; ok {
+		cm.cron.Remove(entryID)
+		delete(cm.jobs, job.ID)
+	}
+
+	if job.Enabled {
+		return cm.scheduleJob(job)
+	}
+
+	return nil
+}
+
+// ListJobs returns all jobs for a user.
+func (cm *CronManager) ListJobs(userID string) ([]*CronJob, error) {
+	return cm.store.GetByUserID(userID)
+}
+
+// scheduleJob schedules a single job.
+func (cm *CronManager) scheduleJob(job *CronJob) error {
+	entryID, err := cm.cron.AddFunc(job.CronExpr, func() {
+		cm.executeJob(job)
+	})
+	if err != nil {
+		return err
+	}
+
+	cm.jobs[job.ID] = entryID
+
+	// Update next run time
+	job.NextRun = time.Now().Add(time.Minute).Unix() // approximate
+	cm.store.Update(job)
+
+	return nil
+}
+
+// executeJob executes a cron job.
+func (cm *CronManager) executeJob(job *CronJob) {
+	log.Printf("[cron] executing job %s for user %s", job.ID, job.UserID)
+
+	ctx := context.Background()
+
+	switch job.Command.Type {
+	case "text":
+		cm.executeTextJob(ctx, job)
+	case "workflow":
+		cm.executeWorkflowJob(ctx, job)
+	case "agent":
+		cm.executeAgentJob(ctx, job)
+	default:
+		log.Printf("[cron] unknown command type: %s", job.Command.Type)
+	}
+}
+
+// executeTextJob sends a text message to the user.
+func (cm *CronManager) executeTextJob(ctx context.Context, job *CronJob) {
+	clientID := NewClientID()
+	content := job.Command.Content
+
+	req := &ilink.SendMessageRequest{
+		Msg: ilink.SendMsg{
+			FromUserID:   cm.client.BotID(),
+			ToUserID:     job.UserID,
+			ClientID:     clientID,
+			MessageType:  ilink.MessageTypeBot,
+			MessageState: ilink.MessageStateFinish,
+			ItemList: []ilink.MessageItem{
+				{Type: ilink.ItemTypeText, TextItem: &ilink.TextItem{Text: content}},
+			},
+		},
+	}
+
+	resp, err := cm.client.SendMessage(ctx, req)
+	if err != nil || resp.Ret != 0 {
+		log.Printf("[cron] failed to send text message: err=%v ret=%d", err, resp.Ret)
+	} else {
+		log.Printf("[cron] sent text message to %s", job.UserID)
+	}
+}
+
+// executeWorkflowJob executes a workflow DSL.
+func (cm *CronManager) executeWorkflowJob(ctx context.Context, job *CronJob) {
+	// Construct a fake WeixinMessage for workflow execution
+	msg := ilink.WeixinMessage{
+		FromUserID: job.UserID,
+		// Other fields are not used by workflow handler
+	}
+
+	clientID := NewClientID()
+
+	// Call workflow handler with the DSL content
+	reply := cm.handler.handleWorkflow(ctx, cm.client, msg, job.Command.Content, clientID)
+
+	// Send reply if any
+	if reply != "" {
+		req := &ilink.SendMessageRequest{
+			Msg: ilink.SendMsg{
+				FromUserID:   cm.client.BotID(),
+				ToUserID:     job.UserID,
+				ClientID:     clientID,
+				MessageType:  ilink.MessageTypeBot,
+				MessageState: ilink.MessageStateFinish,
+				ItemList: []ilink.MessageItem{
+					{Type: ilink.ItemTypeText, TextItem: &ilink.TextItem{Text: reply}},
+				},
+			},
+		}
+
+		resp, err := cm.client.SendMessage(ctx, req)
+		if err != nil || resp.Ret != 0 {
+			log.Printf("[cron] failed to send workflow reply: err=%v ret=%d", err, resp.Ret)
+		}
+	}
+
+	log.Printf("[cron] executed workflow for %s", job.UserID)
+}
+
+// executeAgentJob sends a message to a specific agent.
+func (cm *CronManager) executeAgentJob(ctx context.Context, job *CronJob) {
+	agentName := job.Command.Agent
+	if agentName == "" {
+		agentName = cm.handler.getDefaultAgentName()
+	}
+
+	// This would require calling the agent directly
+	// For now, just send the text message
+	log.Printf("[cron] agent job not fully implemented, sending as text")
+	cm.executeTextJob(ctx, job)
+}
+
+````
+
+[⬆ 回到目录](#toc)
+
+<a name="file-messaging-handler.go"></a>
+## 📄 messaging/handler.go
+
+````go
 package messaging
 
 import (
@@ -7059,6 +7767,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -7102,6 +7811,7 @@ type Handler struct {
 	shellModeStates sync.Map         // map[userID]*shellModeState — per-user shell mode state
 	todoStore       *TodoStore
 	timerStore      *TimerStore
+	cronManager     *CronManager
 	clients         []*ilink.Client
 }
 
@@ -7185,6 +7895,13 @@ func (h *Handler) SetAgentWorkDirs(workDirs map[string]string) {
 	for name, dir := range workDirs {
 		h.agentWorkDirs[name] = dir
 	}
+}
+
+// SetCronManager sets the cron manager for scheduled tasks.
+func (h *Handler) SetCronManager(cm *CronManager) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.cronManager = cm
 }
 
 // SetDefaultAgent sets the default agent (already started).
@@ -7300,7 +8017,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer", "/workflow"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer", "/workflow", "/cron"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help", "/help " and "/help\n" should
@@ -7606,6 +8323,15 @@ handleBuiltinCommand:
 	} else if strings.HasPrefix(effectiveTrimmed, "/sh ") || strings.HasPrefix(effectiveTrimmed, "/$ ") {
 		// Execute single command without entering shell mode
 		reply := h.handleShell(ctx, effectiveTrimmed)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/cron") {
+		// Handle cron commands
+		reply := h.handleCron(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -8674,7 +9400,15 @@ func buildHelpText() string {
 🔄 工作流
   /workflow           查看工作流语法帮助
   /workflow DSL...    执行多步骤 Agent 编排
-  支持: 顺序链式 + 并行分支 + 自动保存 + @N 引用`
+  支持: 顺序链式 + 并行分支 + 自动保存 + @N 引用
+
+📅 定时任务
+  /cron add 每天早上9点提醒我喝水            添加定时任务（支持自然语言）
+  /cron add 每周一早上8点生成周报            添加定时工作流
+  /cron add "0 9 * * *" 提醒喝水              传统 cron 表达式格式
+  /cron list                                  查看定时任务
+  /cron remove <id>                           删除定时任务
+  /cron enable/disable <id>                  启用/禁用任务`
 }
 
 func extractText(msg ilink.WeixinMessage) string {
@@ -9776,13 +10510,756 @@ func formatShellOutput(cwd string, output string) string {
 	return fmt.Sprintf("%s\n```\n%s\n```", prompt, output)
 }
 
-```
+// handleCron processes /cron commands.
+// Usage:
+//   /cron add "0 9 * * *" message          - add a text cron job
+//   /cron add "0 9 * * *" workflow DSL...   - add a workflow cron job
+//   /cron list                             - list all cron jobs
+//   /cron remove <id>                      - remove a cron job
+//   /cron enable <id>                      - enable a cron job
+//   /cron disable <id>                     - disable a cron job
+func (h *Handler) handleCron(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
+	if h.cronManager == nil {
+		return "❌ Cron 管理器未初始化"
+	}
+
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/cron"))
+
+	if rest == "" || rest == "list" {
+		return h.handleCronList(ctx, msg.FromUserID)
+	}
+
+	parts := strings.Fields(rest)
+	if len(parts) == 0 {
+		return h.handleCronList(ctx, msg.FromUserID)
+	}
+
+	command := parts[0]
+	args := parts[1:]
+
+	switch command {
+	case "add":
+		return h.handleCronAdd(ctx, msg.FromUserID, args)
+	case "remove", "rm", "delete":
+		if len(args) < 1 {
+			return "用法: /cron remove <id>"
+		}
+		return h.handleCronRemove(ctx, msg.FromUserID, args[0])
+	case "enable":
+		if len(args) < 1 {
+			return "用法: /cron enable <id>"
+		}
+		return h.handleCronEnable(ctx, msg.FromUserID, args[0], true)
+	case "disable":
+		if len(args) < 1 {
+			return "用法: /cron disable <id>"
+		}
+		return h.handleCronEnable(ctx, msg.FromUserID, args[0], false)
+	default:
+		// Try to parse as "add" command with implicit add
+		return h.handleCronAdd(ctx, msg.FromUserID, parts)
+	}
+}
+
+// handleCronList lists all cron jobs for the user.
+func (h *Handler) handleCronList(ctx context.Context, userID string) string {
+	jobs, err := h.cronManager.ListJobs(userID)
+	if err != nil {
+		return fmt.Sprintf("❌ 获取任务列表失败: %v", err)
+	}
+
+	if len(jobs) == 0 {
+		return "📅 你还没有定时任务\n\n用法:\n/cron add \"0 9 * * *\" 提醒喝水\n/cron add \"0 9 * * 1\" workflow step1 @claude 生成周报"
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("📅 定时任务列表 (共 %d 个):\n\n", len(jobs)))
+
+	for i, job := range jobs {
+		status := "✅ 启用"
+		if !job.Enabled {
+			status = "❌ 禁用"
+		}
+
+		cmdType := "文本"
+		if job.Command.Type == "workflow" {
+			cmdType = "工作流"
+		} else if job.Command.Type == "agent" {
+			cmdType = "Agent"
+		}
+
+		content := job.Command.Content
+		if len(content) > 30 {
+			content = content[:30] + "..."
+		}
+
+		sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, job.ID, status))
+		sb.WriteString(fmt.Sprintf("   表达式: %s\n", job.CronExpr))
+		sb.WriteString(fmt.Sprintf("   类型: %s\n", cmdType))
+		sb.WriteString(fmt.Sprintf("   内容: %s\n\n", content))
+	}
+
+	sb.WriteString("💡 管理命令:\n")
+	sb.WriteString("   /cron remove <id>   - 删除任务\n")
+	sb.WriteString("   /cron enable <id>   - 启用任务\n")
+	sb.WriteString("   /cron disable <id>  - 禁用任务")
+
+	return sb.String()
+}
+
+// handleCronAdd adds a new cron job.
+func (h *Handler) handleCronAdd(ctx context.Context, userID string, args []string) string {
+	if len(args) < 1 {
+		return "用法: /cron add <定时描述>\n   /cron add \"<cron表达式>\" <消息内容>\n\n示例:\n   /cron add 每天早上9点提醒我喝水\n   /cron add 每周一早上8点生成周报\n   /cron add \"0 9 * * *\" workflow step1 @claude 生成周报"
+	}
+
+	// Check if args[0] looks like a cron expression
+	// A cron expression should have space-separated parts with special characters
+	possibleCronExpr := args[0]
+	possibleCronExpr = strings.Trim(possibleCronExpr, "\"")
+
+	// Better detection: check if it looks like a cron expression (space-separated with special chars)
+	// rather than natural language which might contain numbers
+	isCronExpr := looksLikeCronExpr(possibleCronExpr)
+
+	var cronExpr, cmdType, cmdContent, cmdAgent string
+
+	if isCronExpr {
+		// User provided cron expression directly
+		cronExpr = possibleCronExpr
+
+		// Validate cron expression
+		if err := validateCronExpr(cronExpr); err != nil {
+			return fmt.Sprintf("❌ Cron 表达式无效: %v\n\n格式: 秒 分 时 日 月 周\n示例: \"0 9 * * *\" - 每天 9:00", err)
+		}
+
+		// Parse the rest of args
+		if len(args) < 2 {
+			return "❌ 请提供消息内容\n用法: /cron add \"0 9 * * *\" 消息内容"
+		}
+
+		// Check if second arg is a command type
+		switch args[1] {
+		case "workflow", "wf":
+			if len(args) < 3 {
+				return "❌ 工作流内容不能为空\n用法: /cron add \"0 9 * * *\" workflow step1 @claude 分析..."
+			}
+			cmdType = "workflow"
+			cmdContent = strings.Join(args[2:], " ")
+		case "agent":
+			if len(args) < 4 {
+				return "❌ Agent 任务格式错误\n用法: /cron add \"0 9 * * *\" agent @claude 消息内容"
+			}
+			cmdType = "agent"
+			cmdAgent = args[2]
+			cmdContent = strings.Join(args[3:], " ")
+		default:
+			// Default to text type
+			cmdType = "text"
+			cmdContent = strings.Join(args[1:], " ")
+		}
+	} else {
+		// User provided natural language - use AI to parse
+		naturalLang := strings.Join(args, " ")
+		return h.handleNaturalLanguageCron(ctx, userID, naturalLang)
+	}
+
+	// Generate job ID
+	jobID := fmt.Sprintf("cron_%d", time.Now().UnixNano())
+
+	job := &CronJob{
+		ID:       jobID,
+		UserID:   userID,
+		CronExpr: cronExpr,
+		Command: CronCommand{
+			Type:    cmdType,
+			Content: cmdContent,
+			Agent:   cmdAgent,
+		},
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	if err := h.cronManager.AddJob(job); err != nil {
+		return fmt.Sprintf("❌ 添加任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 定时任务已添加\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, cronExpr, cmdType, truncate(cmdContent, 50))
+}
+
+// handleNaturalLanguageCron parses natural language and creates a cron job.
+// Uses the "Assistant" HTTP agent to avoid function calling issues.
+// Falls back to rule-based parsing if AI fails or returns invalid result.
+func (h *Handler) handleNaturalLanguageCron(ctx context.Context, userID, naturalLang string) string {
+	log.Printf("[cron] Attempting AI parsing for: %q", naturalLang)
+
+	// Use getAgent to start Assistant on demand if not already running
+	assistantAgent, err := h.getAgent(ctx, "Assistant")
+	if err != nil {
+		log.Printf("[cron] Failed to get Assistant agent, falling back to rule-based parsing: %v", err)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	log.Printf("[cron] Using Assistant agent for parsing")
+
+	// Use AI to parse natural language
+	prompt := fmt.Sprintf(`你是一个 cron 表达式生成器。请将用户的时间描述转换为标准的 cron 格式。
+
+用户描述：%s
+
+请直接输出 JSON 格式（不要使用代码块，不要使用 markdown）：
+
+{
+  "cron_expr": "0 8 2 * * *",
+  "message": "根据用户描述生成的消息内容",
+  "type": "text"
+}
+
+cron 格式说明（6位）：秒 分 时 日 月 周
+- 每天9点 → 0 0 9 * * *
+- 每天2:08 → 0 8 2 * * *
+- 每周一8点 → 0 0 8 * * 1
+- 每30分钟 → 0 */30 * * * *
+- 每天早上9点提醒开会 → {"cron_expr": "0 0 9 * * *", "message": "提醒开会", "type": "text"}
+
+注意：小时范围0-23，分钟范围0-59。
+
+现在请为用户描述生成 JSON：`, naturalLang)
+
+	reply, err := assistantAgent.Chat(ctx, userID+"_cron_parse", prompt)
+	if err != nil {
+		// Fallback to rule-based parsing on error
+		log.Printf("[cron] AI parsing failed, falling back to rule-based: %v", err)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	log.Printf("[cron] AI response: %q", truncate(reply, 200))
+
+	// Extract JSON from reply
+	jsonStart := strings.Index(reply, "{")
+	jsonEnd := strings.LastIndex(reply, "}")
+	if jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart {
+		// Fallback to rule-based parsing on JSON extraction error
+		log.Printf("[cron] AI response doesn't contain valid JSON, falling back to rule-based")
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	jsonStr := reply[jsonStart : jsonEnd+1]
+
+	// Parse JSON
+	var result struct {
+		CronExpr string `json:"cron_expr"`
+		Message  string `json:"message"`
+		Type     string `json:"type"`
+	}
+
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+		// Fallback to rule-based parsing on JSON parse error
+		log.Printf("[cron] Failed to parse AI response JSON, falling back to rule-based: %v", err)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	log.Printf("[cron] AI parsed: cron_expr=%q message=%q type=%q", result.CronExpr, result.Message, result.Type)
+
+	// Strictly validate cron expression
+	if err := validateCronExpr(result.CronExpr); err != nil {
+		log.Printf("[cron] AI returned invalid cron expression: %v, falling back to rule-based", err)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	// Additional validation: check hour and minute ranges
+	parts := strings.Fields(result.CronExpr)
+	if len(parts) >= 3 {
+		// Check minute field (index 1)
+		if parts[1] != "*" {
+			minStr := strings.TrimPrefix(parts[1], "*/")
+			if min, err := strconv.Atoi(minStr); err == nil {
+				if min < 0 || min > 59 {
+					log.Printf("[cron] AI returned invalid minute value: %d, falling back to rule-based", min)
+					return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+				}
+			}
+		}
+		// Check hour field (index 2)
+		if parts[2] != "*" {
+			hourStr := strings.TrimPrefix(parts[2], "*/")
+			if hour, err := strconv.Atoi(hourStr); err == nil {
+				if hour < 0 || hour > 23 {
+					log.Printf("[cron] AI returned invalid hour value: %d, falling back to rule-based", hour)
+					return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+				}
+			}
+		}
+	}
+
+	// Validate type
+	if result.Type != "text" && result.Type != "workflow" && result.Type != "agent" {
+		log.Printf("[cron] AI returned invalid type: %q, falling back to rule-based", result.Type)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	log.Printf("[cron] AI parsing successful, creating job")
+
+	// Generate job ID
+	jobID := fmt.Sprintf("cron_%d", time.Now().UnixNano())
+
+	var cmdAgent string
+	if result.Type == "agent" {
+		// Extract agent from message
+		parts := strings.Fields(result.Message)
+		if len(parts) > 0 && strings.HasPrefix(parts[0], "@") {
+			cmdAgent = strings.TrimPrefix(parts[0], "@")
+			result.Message = strings.Join(parts[1:], " ")
+		}
+	}
+
+	job := &CronJob{
+		ID:       jobID,
+		UserID:   userID,
+		CronExpr: result.CronExpr,
+		Command: CronCommand{
+			Type:    result.Type,
+			Content: result.Message,
+			Agent:   cmdAgent,
+		},
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	if err := h.cronManager.AddJob(job); err != nil {
+		return fmt.Sprintf("❌ 添加任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 定时任务已添加（AI 解析）\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, result.CronExpr, result.Type, truncate(result.Message, 50))
+}
+
+// handleNaturalLanguageCronRuleBased is a fallback rule-based parser.
+func (h *Handler) handleNaturalLanguageCronRuleBased(ctx context.Context, userID, naturalLang string) string {
+	// Parse natural language using simple pattern matching
+	cronExpr, message, cmdType := parseNaturalLanguageCron(naturalLang)
+
+	if cronExpr == "" {
+		return "❌ 无法解析时间描述\n\n支持的格式：\n" +
+			"  每天9点提醒我开会\n" +
+			"  每周一早上8点生成周报\n" +
+			"  每30分钟检查状态\n" +
+			"  每天早上9点\n\n" +
+			"或使用标准 cron 表达式：\n" +
+			"  /cron add \"0 9 * * *\" 消息内容"
+	}
+
+	// Generate job ID
+	jobID := fmt.Sprintf("cron_%d", time.Now().UnixNano())
+
+	var cmdAgent string
+	if cmdType == "agent" {
+		// Extract agent from message
+		parts := strings.Fields(message)
+		if len(parts) > 0 && strings.HasPrefix(parts[0], "@") {
+			cmdAgent = strings.TrimPrefix(parts[0], "@")
+			message = strings.Join(parts[1:], " ")
+		}
+	}
+
+	job := &CronJob{
+		ID:       jobID,
+		UserID:   userID,
+		CronExpr: cronExpr,
+		Command: CronCommand{
+			Type:    cmdType,
+			Content: message,
+			Agent:   cmdAgent,
+		},
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	if err := h.cronManager.AddJob(job); err != nil {
+		return fmt.Sprintf("❌ 添加任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 定时任务已添加\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, cronExpr, cmdType, truncate(message, 50))
+}
+
+// parseNaturalLanguageCron parses natural language time descriptions into cron expressions.
+// Returns (cronExpr, message, cmdType). If parsing fails, returns ("", "", "").
+func parseNaturalLanguageCron(input string) (string, string, string) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return "", "", ""
+	}
+
+	// Check for workflow keyword
+	cmdType := "text"
+	if strings.Contains(input, "workflow") || strings.Contains(input, "工作流") {
+		cmdType = "workflow"
+	}
+
+	// Extract time part and message part
+	// Common patterns: "每天9点提醒", "每周一早上8点", "每30分钟检查"
+	var timePart, messagePart string
+
+	// Try to split by common action verbs
+	actionVerbs := []string{"提醒", "发送", "推送", "通知", "检查", "生成", "汇报", "开会", "消息"}
+	for _, verb := range actionVerbs {
+		idx := strings.Index(input, verb)
+		if idx > 0 {
+			timePart = strings.TrimSpace(input[:idx])
+			messagePart = strings.TrimSpace(input[idx:])
+			break
+		}
+	}
+
+	// If no action verb found, try other patterns
+	if timePart == "" {
+		// Pattern: "每天9点" (no message) or "每天9点 "
+		if strings.Contains(input, "每天") || strings.Contains(input, "每日") {
+			idx := strings.IndexAny(input, "0123456789每")
+			if idx >= 0 {
+				// Find where the time description ends
+				endIdx := len(input)
+				for _, sep := range []string{" ", "，", ","} {
+					if j := strings.Index(input[idx:], sep); j > 0 && idx+j < endIdx {
+						endIdx = idx + j
+					}
+				}
+				timePart = strings.TrimSpace(input[:endIdx])
+				messagePart = strings.TrimSpace(input[endIdx:])
+			}
+		} else if strings.Contains(input, "每周") {
+			idx := strings.Index(input, "每周")
+			if idx >= 0 {
+				// Find where it ends
+				endIdx := len(input)
+				for _, sep := range []string{" ", "，", ","} {
+					if j := strings.Index(input[idx:], sep); j > 0 && idx+j < endIdx {
+						endIdx = idx + j
+					}
+				}
+				timePart = strings.TrimSpace(input[:endIdx])
+				messagePart = strings.TrimSpace(input[endIdx:])
+			}
+		} else if strings.Contains(input, "每") && (strings.Contains(input, "分钟") || strings.Contains(input, "小时")) {
+			// Every N minutes/hours
+			idx := strings.Index(input, "每")
+			if idx >= 0 {
+				endIdx := len(input)
+				for _, sep := range []string{" ", "，", ","} {
+					if j := strings.Index(input[idx:], sep); j > 0 && idx+j < endIdx {
+						endIdx = idx + j
+					}
+				}
+				timePart = strings.TrimSpace(input[:endIdx])
+				messagePart = strings.TrimSpace(input[endIdx:])
+			}
+		} else {
+			// Whole thing is time part, no message
+			timePart = input
+		}
+	}
+
+	// If still no time part, use whole input as time
+	if timePart == "" {
+		timePart = input
+	}
+
+	// Default message if none extracted
+	if messagePart == "" {
+		messagePart = "定时提醒"
+	}
+
+	// Parse time patterns
+	// Pattern: 每天9点 → 0 0 9 * * *
+	// Pattern: 每天2:08 → 0 8 2 * * *
+	if strings.Contains(timePart, "每天") || strings.Contains(timePart, "每日") {
+		hour, minute := extractTime(timePart)
+		if hour >= 0 {
+			return fmt.Sprintf("0 %d %d * * *", minute, hour), messagePart, cmdType
+		}
+	}
+
+	// Pattern: 每周一/二/三/四/五/六/日 X点
+	weekdayMap := map[string]int{
+		"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 0, "天": 0,
+		"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "0": 0, "7": 0,
+	}
+	for day, num := range weekdayMap {
+		pattern := "每周" + day
+		if strings.Contains(timePart, pattern) {
+			hour, minute := extractTime(timePart)
+			if hour >= 0 {
+				return fmt.Sprintf("0 %d %d * * %d", minute, hour, num), messagePart, cmdType
+			}
+		}
+	}
+
+	// Pattern: 每30分钟、每1小时
+	if strings.Contains(timePart, "每") && strings.Contains(timePart, "分钟") {
+		// Extract number
+		num := extractNumber(timePart)
+		if num > 0 && num <= 60 {
+			return fmt.Sprintf("0 */%d * * * *", num), messagePart, cmdType
+		}
+	}
+
+	if strings.Contains(timePart, "每") && strings.Contains(timePart, "小时") {
+		num := extractNumber(timePart)
+		if num > 0 && num <= 24 {
+			return fmt.Sprintf("0 0 */%d * * *", num), messagePart, cmdType
+		}
+	}
+
+	// Pattern: 早上/中午/晚上 X点 or X:Y
+	hour, minute := extractTime(timePart)
+	if hour >= 0 {
+		return fmt.Sprintf("0 %d %d * * *", minute, hour), messagePart, cmdType
+	}
+
+	return "", "", ""
+}
+
+// extractHour extracts the hour (0-23) from a time description.
+// Returns -1 if not found.
+func extractHour(s string) int {
+	hour, _ := extractTime(s)
+	return hour
+}
+
+// extractTime extracts both hour and minute from a time description.
+// Returns (hour, minute). If minute is not found, returns 0.
+// If hour is not found, returns (-1, 0).
+func extractTime(s string) (int, int) {
+	// Look for patterns like "2:08", "9:30"
+	re := regexp.MustCompile(`(\d{1,2}):(\d{2})`)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) >= 3 {
+		hour, err1 := strconv.Atoi(matches[1])
+		minute, err2 := strconv.Atoi(matches[2])
+		if err1 == nil && err2 == nil && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 {
+			return hour, minute
+		}
+	}
+
+	// Look for patterns like "9点8分", "9点08分", "23点30分"
+	re2 := regexp.MustCompile(`(\d{1,2})点(\d{1,2})分`)
+	matches = re2.FindStringSubmatch(s)
+	if len(matches) >= 3 {
+		hour, err1 := strconv.Atoi(matches[1])
+		minute, err2 := strconv.Atoi(matches[2])
+		if err1 == nil && err2 == nil && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 {
+			return hour, minute
+		}
+	}
+
+	// Look for patterns like "9点", "09点", "23点" (no minute specified)
+	re3 := regexp.MustCompile(`(\d{1,2})点`)
+	matches = re3.FindStringSubmatch(s)
+	if len(matches) >= 2 {
+		hour, err := strconv.Atoi(matches[1])
+		if err == nil && hour >= 0 && hour <= 23 {
+			return hour, 0
+		}
+	}
+
+	// Time words
+	timeWords := map[string]int{
+		"凌晨": 0, "午夜": 0, "零点": 0,
+		"早上": 8, "早晨": 8, "上午": 9,
+		"中午": 12, "下午": 14,
+		"晚上": 18, "傍晚": 18,
+	}
+	for word, hour := range timeWords {
+		if strings.Contains(s, word) {
+			// Check if a specific time follows
+			h, m := extractTime(strings.ReplaceAll(s, word, " "))
+			if h >= 0 {
+				return h, m
+			}
+			return hour, 0
+		}
+	}
+
+	return -1, 0
+}
+
+// extractNumber extracts the first number found in the string.
+func extractNumber(s string) int {
+	re := regexp.MustCompile(`(\d+)`)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) >= 2 {
+		num, err := strconv.Atoi(matches[1])
+		if err == nil {
+			return num
+		}
+	}
+	return -1
+}
+
+// handleCronRemove removes a cron job.
+func (h *Handler) handleCronRemove(ctx context.Context, userID, id string) string {
+	// First check if job belongs to user
+	jobs, err := h.cronManager.ListJobs(userID)
+	if err != nil {
+		return fmt.Sprintf("❌ 获取任务列表失败: %v", err)
+	}
+
+	found := false
+	for _, job := range jobs {
+		if job.ID == id || fmt.Sprintf("%d", extractIDFromInput(id, len(jobs))) == job.ID {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Sprintf("❌ 任务 %q 不存在或无权删除", id)
+	}
+
+	// Get actual job ID
+	jobID := id
+	for _, job := range jobs {
+		if job.ID == id {
+			jobID = job.ID
+			break
+		}
+	}
+
+	if err := h.cronManager.RemoveJob(jobID); err != nil {
+		return fmt.Sprintf("❌ 删除任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 任务 %s 已删除", id)
+}
+
+// handleCronEnable enables or disables a cron job.
+func (h *Handler) handleCronEnable(ctx context.Context, userID, id string, enable bool) string {
+	// Find the job
+	jobs, err := h.cronManager.ListJobs(userID)
+	if err != nil {
+		return fmt.Sprintf("❌ 获取任务列表失败: %v", err)
+	}
+
+	var targetJob *CronJob
+	for _, job := range jobs {
+		if job.ID == id || job.ID == fmt.Sprintf("cron_%s", id) {
+			targetJob = job
+			break
+		}
+	}
+
+	if targetJob == nil {
+		return fmt.Sprintf("❌ 任务 %q 不存在", id)
+	}
+
+	targetJob.Enabled = enable
+
+	if err := h.cronManager.UpdateJob(targetJob); err != nil {
+		return fmt.Sprintf("❌ 更新任务失败: %v", err)
+	}
+
+	status := "启用"
+	if !enable {
+		status = "禁用"
+	}
+
+	return fmt.Sprintf("✅ 任务 %s 已%s", id, status)
+}
+
+// looksLikeCronExpr checks if a string looks like a cron expression
+// rather than natural language. Cron expressions have specific patterns:
+// - Space-separated parts (5 or 6)
+// - Contains special characters: * , / - ?
+// - Each part is mostly numeric/special chars
+func looksLikeCronExpr(s string) bool {
+	// Empty string is not a cron expr
+	if s == "" {
+		return false
+	}
+
+	// Check if it's wrapped in quotes - user is explicitly providing a cron expr
+	if (strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"")) ||
+		(strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'")) {
+		return true
+	}
+
+	// Split by spaces and check the parts
+	parts := strings.Fields(s)
+
+	// Cron expressions have 5 or 6 parts
+	if len(parts) < 5 || len(parts) > 6 {
+		return false
+	}
+
+	// Check each part looks like a cron field
+	cronSpecialChars := "*,-/?"
+	for _, part := range parts {
+		// Each part should contain mostly special chars or digits
+		hasDigit := false
+		hasSpecial := false
+		alphaCount := 0
+
+		for _, ch := range part {
+			if ch >= '0' && ch <= '9' {
+				hasDigit = true
+			} else if strings.ContainsRune(cronSpecialChars, ch) {
+				hasSpecial = true
+			} else if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
+				alphaCount++
+			}
+		}
+
+		// Valid cron part: has special chars OR (has digits and minimal letters)
+		// Allow things like "MON" or "JAN" but reject longer natural language
+		if !hasDigit && !hasSpecial {
+			return false
+		}
+
+		// Too many letters suggest natural language, not cron
+		if alphaCount > 3 {
+			return false
+		}
+	}
+
+	return true
+}
+
+// validateCronExpr validates a cron expression.
+func validateCronExpr(expr string) error {
+	// Basic validation: check if it has 5 or 6 parts
+	parts := strings.Fields(expr)
+	if len(parts) < 5 || len(parts) > 6 {
+		return fmt.Errorf("cron 表达式应有 5 或 6 个部分，实际有 %d 个", len(parts))
+	}
+
+	// For now, just check format - cron library will validate further
+	return nil
+}
+
+// extractIDFromInput extracts numeric ID from user input like "1", "2", etc.
+func extractIDFromInput(input string, maxJobs int) int {
+	// Try to parse as number
+	var id int
+	if _, err := fmt.Sscanf(input, "%d", &id); err == nil && id > 0 && id <= maxJobs {
+		return id
+	}
+	return -1
+}
+
+// getDefaultAgentName returns the current default agent name.
+func (h *Handler) getDefaultAgentName() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.defaultName
+}
+
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/handler_test.go
+<a name="file-messaging-handler_test.go"></a>
+## 📄 messaging/handler_test.go
 
-```go
+````go
 package messaging
 
 import (
@@ -10017,13 +11494,14 @@ func TestIsBuiltinCommand_Debate(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/linkhoard.go
+<a name="file-messaging-linkhoard.go"></a>
+## 📄 messaging/linkhoard.go
 
-```go
+````go
 package messaging
 
 import (
@@ -10351,13 +11829,14 @@ func SaveLinkToLinkhoard(ctx context.Context, saveDir, rawURL string) (*LinkMeta
 	return meta, nil
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/markdown.go
+<a name="file-messaging-markdown.go"></a>
+## 📄 messaging/markdown.go
 
-```go
+````go
 package messaging
 
 import (
@@ -10462,13 +11941,14 @@ func MarkdownToPlainText(text string) string {
 	return strings.TrimSpace(result)
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/media.go
+<a name="file-messaging-media.go"></a>
+## 📄 messaging/media.go
 
-```go
+````go
 package messaging
 
 import (
@@ -10683,13 +12163,14 @@ func stripQuery(rawURL string) string {
 	return rawURL
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/media_test.go
+<a name="file-messaging-media_test.go"></a>
+## 📄 messaging/media_test.go
 
-```go
+````go
 package messaging
 
 import "testing"
@@ -10764,13 +12245,14 @@ func TestStripQuery(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/sender.go
+<a name="file-messaging-sender.go"></a>
+## 📄 messaging/sender.go
 
-```go
+````go
 package messaging
 
 import (
@@ -10858,13 +12340,14 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/timer.go
+<a name="file-messaging-timer.go"></a>
+## 📄 messaging/timer.go
 
-```go
+````go
 package messaging
 
 import (
@@ -11302,13 +12785,14 @@ func (h *Handler) checkTimerExpirations(ctx context.Context) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/timer_test.go
+<a name="file-messaging-timer_test.go"></a>
+## 📄 messaging/timer_test.go
 
-```go
+````go
 package messaging
 
 import (
@@ -11345,13 +12829,14 @@ func TestParseTimerDuration(t *testing.T) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/todo.go
+<a name="file-messaging-todo.go"></a>
+## 📄 messaging/todo.go
 
-```go
+````go
 package messaging
 
 import (
@@ -11768,13 +13253,14 @@ func (h *Handler) checkReminders(ctx context.Context) {
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/workflow.go
+<a name="file-messaging-workflow.go"></a>
+## 📄 messaging/workflow.go
 
-```go
+````go
 package messaging
 
 import (
@@ -12381,13 +13867,14 @@ func buildWorkflowSummary(steps []*WorkflowStep, stepResults map[int]string) str
 	return sb.String()
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## messaging/workflow_test.go
+<a name="file-messaging-workflow_test.go"></a>
+## 📄 messaging/workflow_test.go
 
-```go
+````go
 package messaging
 
 import (
@@ -12699,13 +14186,14 @@ step3 @claude merge @2.1 and @2.2`
 	}
 }
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
-## web/embed.go
+<a name="file-web-embed.go"></a>
+## 📄 web/embed.go
 
-```go
+````go
 package web
 
 import _ "embed"
@@ -12713,12 +14201,12 @@ import _ "embed"
 //go:embed admin.html
 var AdminHTML []byte
 
-```
+````
 
 [⬆ 回到目录](#toc)
 
 ---
 ### 📊 最终统计汇总
-- **文件总数:** 44
-- **代码总行数:** 12311
-- **物理总大小:** 337.54 KB
+- **文件总数:** 45
+- **代码总行数:** 13744
+- **物理总大小:** 376.15 KB

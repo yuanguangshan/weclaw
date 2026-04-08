@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -2862,17 +2863,14 @@ func (h *Handler) handleCronAdd(ctx context.Context, userID string, args []strin
 		return "用法: /cron add <定时描述>\n   /cron add \"<cron表达式>\" <消息内容>\n\n示例:\n   /cron add 每天早上9点提醒我喝水\n   /cron add 每周一早上8点生成周报\n   /cron add \"0 9 * * *\" workflow step1 @claude 生成周报"
 	}
 
-	// Check if args[0] looks like a cron expression (contains numbers or *)
+	// Check if args[0] looks like a cron expression
+	// A cron expression should have space-separated parts with special characters
 	possibleCronExpr := args[0]
 	possibleCronExpr = strings.Trim(possibleCronExpr, "\"")
 
-	isCronExpr := false
-	for _, ch := range possibleCronExpr {
-		if ch >= '0' && ch <= '9' || ch == '*' {
-			isCronExpr = true
-			break
-		}
-	}
+	// Better detection: check if it looks like a cron expression (space-separated with special chars)
+	// rather than natural language which might contain numbers
+	isCronExpr := looksLikeCronExpr(possibleCronExpr)
 
 	var cronExpr, cmdType, cmdContent, cmdAgent string
 
@@ -2940,45 +2938,62 @@ func (h *Handler) handleCronAdd(ctx context.Context, userID string, args []strin
 }
 
 // handleNaturalLanguageCron parses natural language and creates a cron job.
+// Uses the "Assistant" HTTP agent to avoid function calling issues.
+// Falls back to rule-based parsing if AI fails or returns invalid result.
 func (h *Handler) handleNaturalLanguageCron(ctx context.Context, userID, naturalLang string) string {
-	// Use default agent to parse natural language
-	prompt := fmt.Sprintf(`请将以下自然语言描述转换为 cron 定时任务。
+	log.Printf("[cron] Attempting AI parsing for: %q", naturalLang)
 
-返回格式必须是 JSON，不要有任何其他文字：
+	h.mu.RLock()
+	assistantAgent := h.agents["Assistant"]
+	h.mu.RUnlock()
+
+	if assistantAgent == nil {
+		log.Printf("[cron] Assistant agent not found, falling back to rule-based parsing")
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	log.Printf("[cron] Using Assistant agent for parsing")
+
+	// Use AI to parse natural language
+	prompt := fmt.Sprintf(`你是一个 cron 表达式生成器。请将用户的时间描述转换为标准的 cron 格式。
+
+用户描述：%s
+
+请直接输出 JSON 格式（不要使用代码块，不要使用 markdown）：
+
 {
-  "cron_expr": "秒 分 时 日 月 周 格式的 cron 表达式",
-  "message": "要发送的消息内容",
-  "type": "text 或 workflow 或 agent"
+  "cron_expr": "0 8 2 * * *",
+  "message": "根据用户描述生成的消息内容",
+  "type": "text"
 }
 
-自然语言描述: %s
+cron 格式说明（6位）：秒 分 时 日 月 周
+- 每天9点 → 0 0 9 * * *
+- 每天2:08 → 0 8 2 * * *
+- 每周一8点 → 0 0 8 * * 1
+- 每30分钟 → 0 */30 * * * *
+- 每天早上9点提醒开会 → {"cron_expr": "0 0 9 * * *", "message": "提醒开会", "type": "text"}
 
-注意：
-1. cron 表达式使用 6 位格式：秒 分 时 日 月 周
-2. 每天9点: "0 9 * * *"
-3. 每周一早上8点: "0 8 * * 1"
-4. 每30分钟: "0 */30 * * *"
-5. 如果描述中包含 "workflow"、"工作流" 关键词，type 设为 "workflow"，message 设为工作流 DSL
-6. 如果描述中包含 "@agent" 格式，type 设为 "agent"
-7. 其他情况 type 设为 "text"
+注意：小时范围0-23，分钟范围0-59。
 
-请只返回 JSON，不要有任何解释。`, naturalLang)
+现在请为用户描述生成 JSON：`, naturalLang)
 
-	ag := h.getDefaultAgent()
-	if ag == nil {
-		return "❌ 默认 agent 不可用，请使用 cron 表达式格式\n\n示例: /cron add \"0 9 * * *\" 消息内容"
-	}
-
-	reply, err := ag.Chat(ctx, userID+"_cron_parse", prompt)
+	reply, err := assistantAgent.Chat(ctx, userID+"_cron_parse", prompt)
 	if err != nil {
-		return fmt.Sprintf("❌ AI 解析失败: %v\n\n请使用标准 cron 表达式格式：\n/cron add \"0 9 * * *\" 消息内容", err)
+		// Fallback to rule-based parsing on error
+		log.Printf("[cron] AI parsing failed, falling back to rule-based: %v", err)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
 	}
+
+	log.Printf("[cron] AI response: %q", truncate(reply, 200))
 
 	// Extract JSON from reply
 	jsonStart := strings.Index(reply, "{")
 	jsonEnd := strings.LastIndex(reply, "}")
 	if jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart {
-		return fmt.Sprintf("❌ AI 返回格式错误\n\n返回内容:\n%s\n\n请使用标准 cron 表达式格式：\n/cron add \"0 9 * * *\" 消息内容", reply)
+		// Fallback to rule-based parsing on JSON extraction error
+		log.Printf("[cron] AI response doesn't contain valid JSON, falling back to rule-based")
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
 	}
 
 	jsonStr := reply[jsonStart : jsonEnd+1]
@@ -2991,13 +3006,51 @@ func (h *Handler) handleNaturalLanguageCron(ctx context.Context, userID, natural
 	}
 
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		return fmt.Sprintf("❌ AI 返回 JSON 解析失败: %v\n\n返回内容:\n%s\n\n请使用标准 cron 表达式格式：\n/cron add \"0 9 * * *\" 消息内容", err)
+		// Fallback to rule-based parsing on JSON parse error
+		log.Printf("[cron] Failed to parse AI response JSON, falling back to rule-based: %v", err)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
 	}
 
-	// Validate cron expression
+	log.Printf("[cron] AI parsed: cron_expr=%q message=%q type=%q", result.CronExpr, result.Message, result.Type)
+
+	// Strictly validate cron expression
 	if err := validateCronExpr(result.CronExpr); err != nil {
-		return fmt.Sprintf("❌ AI 返回的 cron 表达式无效: %v\n\n表达式: %s\n\n请重试或使用标准 cron 表达式格式", err, result.CronExpr)
+		log.Printf("[cron] AI returned invalid cron expression: %v, falling back to rule-based", err)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
 	}
+
+	// Additional validation: check hour and minute ranges
+	parts := strings.Fields(result.CronExpr)
+	if len(parts) >= 3 {
+		// Check minute field (index 1)
+		if parts[1] != "*" {
+			minStr := strings.TrimPrefix(parts[1], "*/")
+			if min, err := strconv.Atoi(minStr); err == nil {
+				if min < 0 || min > 59 {
+					log.Printf("[cron] AI returned invalid minute value: %d, falling back to rule-based", min)
+					return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+				}
+			}
+		}
+		// Check hour field (index 2)
+		if parts[2] != "*" {
+			hourStr := strings.TrimPrefix(parts[2], "*/")
+			if hour, err := strconv.Atoi(hourStr); err == nil {
+				if hour < 0 || hour > 23 {
+					log.Printf("[cron] AI returned invalid hour value: %d, falling back to rule-based", hour)
+					return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+				}
+			}
+		}
+	}
+
+	// Validate type
+	if result.Type != "text" && result.Type != "workflow" && result.Type != "agent" {
+		log.Printf("[cron] AI returned invalid type: %q, falling back to rule-based", result.Type)
+		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
+	}
+
+	log.Printf("[cron] AI parsing successful, creating job")
 
 	// Generate job ID
 	jobID := fmt.Sprintf("cron_%d", time.Now().UnixNano())
@@ -3030,6 +3083,268 @@ func (h *Handler) handleNaturalLanguageCron(ctx context.Context, userID, natural
 	}
 
 	return fmt.Sprintf("✅ 定时任务已添加（AI 解析）\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, result.CronExpr, result.Type, truncate(result.Message, 50))
+}
+
+// handleNaturalLanguageCronRuleBased is a fallback rule-based parser.
+func (h *Handler) handleNaturalLanguageCronRuleBased(ctx context.Context, userID, naturalLang string) string {
+	// Parse natural language using simple pattern matching
+	cronExpr, message, cmdType := parseNaturalLanguageCron(naturalLang)
+
+	if cronExpr == "" {
+		return "❌ 无法解析时间描述\n\n支持的格式：\n" +
+			"  每天9点提醒我开会\n" +
+			"  每周一早上8点生成周报\n" +
+			"  每30分钟检查状态\n" +
+			"  每天早上9点\n\n" +
+			"或使用标准 cron 表达式：\n" +
+			"  /cron add \"0 9 * * *\" 消息内容"
+	}
+
+	// Generate job ID
+	jobID := fmt.Sprintf("cron_%d", time.Now().UnixNano())
+
+	var cmdAgent string
+	if cmdType == "agent" {
+		// Extract agent from message
+		parts := strings.Fields(message)
+		if len(parts) > 0 && strings.HasPrefix(parts[0], "@") {
+			cmdAgent = strings.TrimPrefix(parts[0], "@")
+			message = strings.Join(parts[1:], " ")
+		}
+	}
+
+	job := &CronJob{
+		ID:       jobID,
+		UserID:   userID,
+		CronExpr: cronExpr,
+		Command: CronCommand{
+			Type:    cmdType,
+			Content: message,
+			Agent:   cmdAgent,
+		},
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	if err := h.cronManager.AddJob(job); err != nil {
+		return fmt.Sprintf("❌ 添加任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 定时任务已添加\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, cronExpr, cmdType, truncate(message, 50))
+}
+
+// parseNaturalLanguageCron parses natural language time descriptions into cron expressions.
+// Returns (cronExpr, message, cmdType). If parsing fails, returns ("", "", "").
+func parseNaturalLanguageCron(input string) (string, string, string) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return "", "", ""
+	}
+
+	// Check for workflow keyword
+	cmdType := "text"
+	if strings.Contains(input, "workflow") || strings.Contains(input, "工作流") {
+		cmdType = "workflow"
+	}
+
+	// Extract time part and message part
+	// Common patterns: "每天9点提醒", "每周一早上8点", "每30分钟检查"
+	var timePart, messagePart string
+
+	// Try to split by common action verbs
+	actionVerbs := []string{"提醒", "发送", "推送", "通知", "检查", "生成", "汇报", "开会", "消息"}
+	for _, verb := range actionVerbs {
+		idx := strings.Index(input, verb)
+		if idx > 0 {
+			timePart = strings.TrimSpace(input[:idx])
+			messagePart = strings.TrimSpace(input[idx:])
+			break
+		}
+	}
+
+	// If no action verb found, try other patterns
+	if timePart == "" {
+		// Pattern: "每天9点" (no message) or "每天9点 "
+		if strings.Contains(input, "每天") || strings.Contains(input, "每日") {
+			idx := strings.IndexAny(input, "0123456789每")
+			if idx >= 0 {
+				// Find where the time description ends
+				endIdx := len(input)
+				for _, sep := range []string{" ", "，", ","} {
+					if j := strings.Index(input[idx:], sep); j > 0 && idx+j < endIdx {
+						endIdx = idx + j
+					}
+				}
+				timePart = strings.TrimSpace(input[:endIdx])
+				messagePart = strings.TrimSpace(input[endIdx:])
+			}
+		} else if strings.Contains(input, "每周") {
+			idx := strings.Index(input, "每周")
+			if idx >= 0 {
+				// Find where it ends
+				endIdx := len(input)
+				for _, sep := range []string{" ", "，", ","} {
+					if j := strings.Index(input[idx:], sep); j > 0 && idx+j < endIdx {
+						endIdx = idx + j
+					}
+				}
+				timePart = strings.TrimSpace(input[:endIdx])
+				messagePart = strings.TrimSpace(input[endIdx:])
+			}
+		} else if strings.Contains(input, "每") && (strings.Contains(input, "分钟") || strings.Contains(input, "小时")) {
+			// Every N minutes/hours
+			idx := strings.Index(input, "每")
+			if idx >= 0 {
+				endIdx := len(input)
+				for _, sep := range []string{" ", "，", ","} {
+					if j := strings.Index(input[idx:], sep); j > 0 && idx+j < endIdx {
+						endIdx = idx + j
+					}
+				}
+				timePart = strings.TrimSpace(input[:endIdx])
+				messagePart = strings.TrimSpace(input[endIdx:])
+			}
+		} else {
+			// Whole thing is time part, no message
+			timePart = input
+		}
+	}
+
+	// If still no time part, use whole input as time
+	if timePart == "" {
+		timePart = input
+	}
+
+	// Default message if none extracted
+	if messagePart == "" {
+		messagePart = "定时提醒"
+	}
+
+	// Parse time patterns
+	// Pattern: 每天9点 → 0 0 9 * * *
+	// Pattern: 每天2:08 → 0 8 2 * * *
+	if strings.Contains(timePart, "每天") || strings.Contains(timePart, "每日") {
+		hour, minute := extractTime(timePart)
+		if hour >= 0 {
+			return fmt.Sprintf("0 %d %d * * *", minute, hour), messagePart, cmdType
+		}
+	}
+
+	// Pattern: 每周一/二/三/四/五/六/日 X点
+	weekdayMap := map[string]int{
+		"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 0, "天": 0,
+		"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "0": 0, "7": 0,
+	}
+	for day, num := range weekdayMap {
+		pattern := "每周" + day
+		if strings.Contains(timePart, pattern) {
+			hour, minute := extractTime(timePart)
+			if hour >= 0 {
+				return fmt.Sprintf("0 %d %d * * %d", minute, hour, num), messagePart, cmdType
+			}
+		}
+	}
+
+	// Pattern: 每30分钟、每1小时
+	if strings.Contains(timePart, "每") && strings.Contains(timePart, "分钟") {
+		// Extract number
+		num := extractNumber(timePart)
+		if num > 0 && num <= 60 {
+			return fmt.Sprintf("0 */%d * * * *", num), messagePart, cmdType
+		}
+	}
+
+	if strings.Contains(timePart, "每") && strings.Contains(timePart, "小时") {
+		num := extractNumber(timePart)
+		if num > 0 && num <= 24 {
+			return fmt.Sprintf("0 0 */%d * * *", num), messagePart, cmdType
+		}
+	}
+
+	// Pattern: 早上/中午/晚上 X点 or X:Y
+	hour, minute := extractTime(timePart)
+	if hour >= 0 {
+		return fmt.Sprintf("0 %d %d * * *", minute, hour), messagePart, cmdType
+	}
+
+	return "", "", ""
+}
+
+// extractHour extracts the hour (0-23) from a time description.
+// Returns -1 if not found.
+func extractHour(s string) int {
+	hour, _ := extractTime(s)
+	return hour
+}
+
+// extractTime extracts both hour and minute from a time description.
+// Returns (hour, minute). If minute is not found, returns 0.
+// If hour is not found, returns (-1, 0).
+func extractTime(s string) (int, int) {
+	// Look for patterns like "2:08", "9:30"
+	re := regexp.MustCompile(`(\d{1,2}):(\d{2})`)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) >= 3 {
+		hour, err1 := strconv.Atoi(matches[1])
+		minute, err2 := strconv.Atoi(matches[2])
+		if err1 == nil && err2 == nil && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 {
+			return hour, minute
+		}
+	}
+
+	// Look for patterns like "9点8分", "9点08分", "23点30分"
+	re2 := regexp.MustCompile(`(\d{1,2})点(\d{1,2})分`)
+	matches = re2.FindStringSubmatch(s)
+	if len(matches) >= 3 {
+		hour, err1 := strconv.Atoi(matches[1])
+		minute, err2 := strconv.Atoi(matches[2])
+		if err1 == nil && err2 == nil && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 {
+			return hour, minute
+		}
+	}
+
+	// Look for patterns like "9点", "09点", "23点" (no minute specified)
+	re3 := regexp.MustCompile(`(\d{1,2})点`)
+	matches = re3.FindStringSubmatch(s)
+	if len(matches) >= 2 {
+		hour, err := strconv.Atoi(matches[1])
+		if err == nil && hour >= 0 && hour <= 23 {
+			return hour, 0
+		}
+	}
+
+	// Time words
+	timeWords := map[string]int{
+		"凌晨": 0, "午夜": 0, "零点": 0,
+		"早上": 8, "早晨": 8, "上午": 9,
+		"中午": 12, "下午": 14,
+		"晚上": 18, "傍晚": 18,
+	}
+	for word, hour := range timeWords {
+		if strings.Contains(s, word) {
+			// Check if a specific time follows
+			h, m := extractTime(strings.ReplaceAll(s, word, " "))
+			if h >= 0 {
+				return h, m
+			}
+			return hour, 0
+		}
+	}
+
+	return -1, 0
+}
+
+// extractNumber extracts the first number found in the string.
+func extractNumber(s string) int {
+	re := regexp.MustCompile(`(\d+)`)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) >= 2 {
+		num, err := strconv.Atoi(matches[1])
+		if err == nil {
+			return num
+		}
+	}
+	return -1
 }
 
 // handleCronRemove removes a cron job.
@@ -3100,6 +3415,64 @@ func (h *Handler) handleCronEnable(ctx context.Context, userID, id string, enabl
 	}
 
 	return fmt.Sprintf("✅ 任务 %s 已%s", id, status)
+}
+
+// looksLikeCronExpr checks if a string looks like a cron expression
+// rather than natural language. Cron expressions have specific patterns:
+// - Space-separated parts (5 or 6)
+// - Contains special characters: * , / - ?
+// - Each part is mostly numeric/special chars
+func looksLikeCronExpr(s string) bool {
+	// Empty string is not a cron expr
+	if s == "" {
+		return false
+	}
+
+	// Check if it's wrapped in quotes - user is explicitly providing a cron expr
+	if (strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"")) ||
+		(strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'")) {
+		return true
+	}
+
+	// Split by spaces and check the parts
+	parts := strings.Fields(s)
+
+	// Cron expressions have 5 or 6 parts
+	if len(parts) < 5 || len(parts) > 6 {
+		return false
+	}
+
+	// Check each part looks like a cron field
+	cronSpecialChars := "*,-/?"
+	for _, part := range parts {
+		// Each part should contain mostly special chars or digits
+		hasDigit := false
+		hasSpecial := false
+		alphaCount := 0
+
+		for _, ch := range part {
+			if ch >= '0' && ch <= '9' {
+				hasDigit = true
+			} else if strings.ContainsRune(cronSpecialChars, ch) {
+				hasSpecial = true
+			} else if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
+				alphaCount++
+			}
+		}
+
+		// Valid cron part: has special chars OR (has digits and minimal letters)
+		// Allow things like "MON" or "JAN" but reject longer natural language
+		if !hasDigit && !hasSpecial {
+			return false
+		}
+
+		// Too many letters suggest natural language, not cron
+		if alphaCount > 3 {
+			return false
+		}
+	}
+
+	return true
 }
 
 // validateCronExpr validates a cron expression.

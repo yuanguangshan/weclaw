@@ -1652,8 +1652,9 @@ func buildHelpText() string {
   支持: 顺序链式 + 并行分支 + 自动保存 + @N 引用
 
 📅 定时任务
-  /cron add "0 9 * * *" 提醒喝水            添加定时消息
-  /cron add "0 9 * * 1" workflow ...       添加定时工作流
+  /cron add 每天早上9点提醒我喝水            添加定时任务（支持自然语言）
+  /cron add 每周一早上8点生成周报            添加定时工作流
+  /cron add "0 9 * * *" 提醒喝水              传统 cron 表达式格式
   /cron list                                  查看定时任务
   /cron remove <id>                           删除定时任务
   /cron enable/disable <id>                  启用/禁用任务`

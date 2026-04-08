@@ -258,7 +258,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer", "/workflow"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
@@ -534,6 +534,14 @@ handleBuiltinCommand:
 		return
 	} else if strings.HasPrefix(effectiveTrimmed, "/debate") {
 		reply := h.handleDebate(ctx, client, msg, effectiveTrimmed, clientID)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/workflow") {
+		reply := h.handleWorkflow(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -1613,7 +1621,12 @@ func buildHelpText() string {
 💡 多 Agent 辩论示例
   /hub pipe gemini AI应该替代人类决策
   /hub pipe claude @1 反驳以上观点
-  /hub pipe deepseek @2 总结双方观点`
+  /hub pipe deepseek @2 总结双方观点
+
+🔄 工作流
+  /workflow           查看工作流语法帮助
+  /workflow DSL...    执行多步骤 Agent 编排
+  支持: 顺序链式 + 并行分支 + 自动保存 + @N 引用`
 }
 
 func extractText(msg ilink.WeixinMessage) string {

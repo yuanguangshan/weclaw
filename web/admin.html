@@ -880,6 +880,11 @@ function esc(s) {
   return d.innerHTML;
 }
 
+function truncate(s, maxLen) {
+  if (!s || s.length <= maxLen) return s;
+  return s.substring(0, maxLen - 3) + '...';
+}
+
 function openAgentModal(agent) {
   currentEditAgent = agent || null;
   document.getElementById('agent-modal-title').textContent = agent ? 'Edit Agent' : 'Add Agent';

@@ -2943,12 +2943,10 @@ func (h *Handler) handleCronAdd(ctx context.Context, userID string, args []strin
 func (h *Handler) handleNaturalLanguageCron(ctx context.Context, userID, naturalLang string) string {
 	log.Printf("[cron] Attempting AI parsing for: %q", naturalLang)
 
-	h.mu.RLock()
-	assistantAgent := h.agents["Assistant"]
-	h.mu.RUnlock()
-
-	if assistantAgent == nil {
-		log.Printf("[cron] Assistant agent not found, falling back to rule-based parsing")
+	// Use getAgent to start Assistant on demand if not already running
+	assistantAgent, err := h.getAgent(ctx, "Assistant")
+	if err != nil {
+		log.Printf("[cron] Failed to get Assistant agent, falling back to rule-based parsing: %v", err)
 		return h.handleNaturalLanguageCronRuleBased(ctx, userID, naturalLang)
 	}
 

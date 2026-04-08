@@ -164,6 +164,22 @@ func runStart(cmd *cobra.Command, args []string) error {
 	handler.StartTodoScheduler(ctx)
 	handler.StartTimerScheduler(ctx)
 
+	// Initialize and start cron manager
+	// Use first client for cron job execution
+	var cronClient *ilink.Client
+	if len(clients) > 0 {
+		cronClient = clients[0]
+	}
+	cronManager := messaging.NewCronManager(weclawDir(), cronClient, handler)
+	if err := cronManager.Start(); err != nil {
+		log.Printf("Failed to start cron manager: %v", err)
+	} else {
+		handler.SetCronManager(cronManager)
+		log.Println("Cron manager started")
+	}
+	// Stop cron manager on exit
+	defer cronManager.Stop()
+
 	// Resolve API addr: flag > env/config > default
 	apiAddr := cfg.APIAddr // already includes env override from loadEnv
 	if apiAddrFlag != "" {

@@ -60,6 +60,7 @@ type Handler struct {
 	shellModeStates sync.Map         // map[userID]*shellModeState — per-user shell mode state
 	todoStore       *TodoStore
 	timerStore      *TimerStore
+	cronManager     *CronManager
 	clients         []*ilink.Client
 }
 
@@ -143,6 +144,13 @@ func (h *Handler) SetAgentWorkDirs(workDirs map[string]string) {
 	for name, dir := range workDirs {
 		h.agentWorkDirs[name] = dir
 	}
+}
+
+// SetCronManager sets the cron manager for scheduled tasks.
+func (h *Handler) SetCronManager(cm *CronManager) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.cronManager = cm
 }
 
 // SetDefaultAgent sets the default agent (already started).
@@ -258,7 +266,7 @@ func (h *Handler) resolveAlias(name string) string {
 // isBuiltinCommand returns true if the text starts with a built-in weclaw command.
 // These should NOT be parsed as agent name prefixes.
 func isBuiltinCommand(text string) bool {
-	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer", "/workflow"} {
+	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer", "/workflow", "/cron"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
 			// e.g. "/helpful stuff" should not match, but "/help", "/help " and "/help\n" should
@@ -564,6 +572,15 @@ handleBuiltinCommand:
 	} else if strings.HasPrefix(effectiveTrimmed, "/sh ") || strings.HasPrefix(effectiveTrimmed, "/$ ") {
 		// Execute single command without entering shell mode
 		reply := h.handleShell(ctx, effectiveTrimmed)
+		if reply != "" {
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+			}
+		}
+		return
+	} else if strings.HasPrefix(effectiveTrimmed, "/cron") {
+		// Handle cron commands
+		reply := h.handleCron(ctx, client, msg, effectiveTrimmed, clientID)
 		if reply != "" {
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -1632,7 +1649,14 @@ func buildHelpText() string {
 🔄 工作流
   /workflow           查看工作流语法帮助
   /workflow DSL...    执行多步骤 Agent 编排
-  支持: 顺序链式 + 并行分支 + 自动保存 + @N 引用`
+  支持: 顺序链式 + 并行分支 + 自动保存 + @N 引用
+
+📅 定时任务
+  /cron add "0 9 * * *" 提醒喝水            添加定时消息
+  /cron add "0 9 * * 1" workflow ...       添加定时工作流
+  /cron list                                  查看定时任务
+  /cron remove <id>                           删除定时任务
+  /cron enable/disable <id>                  启用/禁用任务`
 }
 
 func extractText(msg ilink.WeixinMessage) string {
@@ -2732,4 +2756,263 @@ func formatShellOutput(cwd string, output string) string {
 	// Remove trailing newlines before closing code block
 	output = strings.TrimRight(output, "\n")
 	return fmt.Sprintf("%s\n```\n%s\n```", prompt, output)
+}
+
+// handleCron processes /cron commands.
+// Usage:
+//   /cron add "0 9 * * *" message          - add a text cron job
+//   /cron add "0 9 * * *" workflow DSL...   - add a workflow cron job
+//   /cron list                             - list all cron jobs
+//   /cron remove <id>                      - remove a cron job
+//   /cron enable <id>                      - enable a cron job
+//   /cron disable <id>                     - disable a cron job
+func (h *Handler) handleCron(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, trimmed, clientID string) string {
+	if h.cronManager == nil {
+		return "❌ Cron 管理器未初始化"
+	}
+
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "/cron"))
+
+	if rest == "" || rest == "list" {
+		return h.handleCronList(ctx, msg.FromUserID)
+	}
+
+	parts := strings.Fields(rest)
+	if len(parts) == 0 {
+		return h.handleCronList(ctx, msg.FromUserID)
+	}
+
+	command := parts[0]
+	args := parts[1:]
+
+	switch command {
+	case "add":
+		return h.handleCronAdd(ctx, msg.FromUserID, args)
+	case "remove", "rm", "delete":
+		if len(args) < 1 {
+			return "用法: /cron remove <id>"
+		}
+		return h.handleCronRemove(ctx, msg.FromUserID, args[0])
+	case "enable":
+		if len(args) < 1 {
+			return "用法: /cron enable <id>"
+		}
+		return h.handleCronEnable(ctx, msg.FromUserID, args[0], true)
+	case "disable":
+		if len(args) < 1 {
+			return "用法: /cron disable <id>"
+		}
+		return h.handleCronEnable(ctx, msg.FromUserID, args[0], false)
+	default:
+		// Try to parse as "add" command with implicit add
+		return h.handleCronAdd(ctx, msg.FromUserID, parts)
+	}
+}
+
+// handleCronList lists all cron jobs for the user.
+func (h *Handler) handleCronList(ctx context.Context, userID string) string {
+	jobs, err := h.cronManager.ListJobs(userID)
+	if err != nil {
+		return fmt.Sprintf("❌ 获取任务列表失败: %v", err)
+	}
+
+	if len(jobs) == 0 {
+		return "📅 你还没有定时任务\n\n用法:\n/cron add \"0 9 * * *\" 提醒喝水\n/cron add \"0 9 * * 1\" workflow step1 @claude 生成周报"
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("📅 定时任务列表 (共 %d 个):\n\n", len(jobs)))
+
+	for i, job := range jobs {
+		status := "✅ 启用"
+		if !job.Enabled {
+			status = "❌ 禁用"
+		}
+
+		cmdType := "文本"
+		if job.Command.Type == "workflow" {
+			cmdType = "工作流"
+		} else if job.Command.Type == "agent" {
+			cmdType = "Agent"
+		}
+
+		content := job.Command.Content
+		if len(content) > 30 {
+			content = content[:30] + "..."
+		}
+
+		sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, job.ID, status))
+		sb.WriteString(fmt.Sprintf("   表达式: %s\n", job.CronExpr))
+		sb.WriteString(fmt.Sprintf("   类型: %s\n", cmdType))
+		sb.WriteString(fmt.Sprintf("   内容: %s\n\n", content))
+	}
+
+	sb.WriteString("💡 管理命令:\n")
+	sb.WriteString("   /cron remove <id>   - 删除任务\n")
+	sb.WriteString("   /cron enable <id>   - 启用任务\n")
+	sb.WriteString("   /cron disable <id>  - 禁用任务")
+
+	return sb.String()
+}
+
+// handleCronAdd adds a new cron job.
+func (h *Handler) handleCronAdd(ctx context.Context, userID string, args []string) string {
+	if len(args) < 2 {
+		return "用法: /cron add \"<cron表达式>\" <消息内容>\n   /cron add \"<cron表达式>\" workflow <工作流DSL>\n\n示例:\n   /cron add \"0 9 * * *\" 早上好，记得喝水\n   /cron add \"0 9 * * 1\" workflow step1 @claude 生成周报\n\nCron 表达式格式: 秒 分 时 日 月 周\n   \"0 9 * * *\" - 每天 9:00\n   \"0 9 * * 1\" - 每周一 9:00\n   \"0 */30 * * *\" - 每 30 分钟"
+	}
+
+	cronExpr := args[0]
+	// Remove quotes if present
+	cronExpr = strings.Trim(cronExpr, "\"")
+
+	// Validate cron expression
+	if err := validateCronExpr(cronExpr); err != nil {
+		return fmt.Sprintf("❌ Cron 表达式无效: %v\n\n格式: 秒 分 时 日 月 周\n示例: \"0 9 * * *\"", err)
+	}
+
+	var cmdType string
+	var cmdContent string
+	var cmdAgent string
+
+	// Check if second arg is a command type
+	switch args[1] {
+	case "workflow", "wf":
+		if len(args) < 3 {
+			return "❌ 工作流内容不能为空\n用法: /cron add \"0 9 * * *\" workflow step1 @claude 分析..."
+		}
+		cmdType = "workflow"
+		cmdContent = strings.Join(args[2:], " ")
+	case "agent":
+		if len(args) < 4 {
+			return "❌ Agent 任务格式错误\n用法: /cron add \"0 9 * * *\" agent @claude 消息内容"
+		}
+		cmdType = "agent"
+		cmdAgent = args[2]
+		cmdContent = strings.Join(args[3:], " ")
+	default:
+		// Default to text type
+		cmdType = "text"
+		cmdContent = strings.Join(args[1:], " ")
+	}
+
+	// Generate job ID
+	jobID := fmt.Sprintf("cron_%d", time.Now().UnixNano())
+
+	job := &CronJob{
+		ID:       jobID,
+		UserID:   userID,
+		CronExpr: cronExpr,
+		Command: CronCommand{
+			Type:    cmdType,
+			Content: cmdContent,
+			Agent:   cmdAgent,
+		},
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	if err := h.cronManager.AddJob(job); err != nil {
+		return fmt.Sprintf("❌ 添加任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 定时任务已添加\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, cronExpr, cmdType, truncate(cmdContent, 50))
+}
+
+// handleCronRemove removes a cron job.
+func (h *Handler) handleCronRemove(ctx context.Context, userID, id string) string {
+	// First check if job belongs to user
+	jobs, err := h.cronManager.ListJobs(userID)
+	if err != nil {
+		return fmt.Sprintf("❌ 获取任务列表失败: %v", err)
+	}
+
+	found := false
+	for _, job := range jobs {
+		if job.ID == id || fmt.Sprintf("%d", extractIDFromInput(id, len(jobs))) == job.ID {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Sprintf("❌ 任务 %q 不存在或无权删除", id)
+	}
+
+	// Get actual job ID
+	jobID := id
+	for _, job := range jobs {
+		if job.ID == id {
+			jobID = job.ID
+			break
+		}
+	}
+
+	if err := h.cronManager.RemoveJob(jobID); err != nil {
+		return fmt.Sprintf("❌ 删除任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 任务 %s 已删除", id)
+}
+
+// handleCronEnable enables or disables a cron job.
+func (h *Handler) handleCronEnable(ctx context.Context, userID, id string, enable bool) string {
+	// Find the job
+	jobs, err := h.cronManager.ListJobs(userID)
+	if err != nil {
+		return fmt.Sprintf("❌ 获取任务列表失败: %v", err)
+	}
+
+	var targetJob *CronJob
+	for _, job := range jobs {
+		if job.ID == id || job.ID == fmt.Sprintf("cron_%s", id) {
+			targetJob = job
+			break
+		}
+	}
+
+	if targetJob == nil {
+		return fmt.Sprintf("❌ 任务 %q 不存在", id)
+	}
+
+	targetJob.Enabled = enable
+
+	if err := h.cronManager.UpdateJob(targetJob); err != nil {
+		return fmt.Sprintf("❌ 更新任务失败: %v", err)
+	}
+
+	status := "启用"
+	if !enable {
+		status = "禁用"
+	}
+
+	return fmt.Sprintf("✅ 任务 %s 已%s", id, status)
+}
+
+// validateCronExpr validates a cron expression.
+func validateCronExpr(expr string) error {
+	// Basic validation: check if it has 5 or 6 parts
+	parts := strings.Fields(expr)
+	if len(parts) < 5 || len(parts) > 6 {
+		return fmt.Errorf("cron 表达式应有 5 或 6 个部分，实际有 %d 个", len(parts))
+	}
+
+	// For now, just check format - cron library will validate further
+	return nil
+}
+
+// extractIDFromInput extracts numeric ID from user input like "1", "2", etc.
+func extractIDFromInput(input string, maxJobs int) int {
+	// Try to parse as number
+	var id int
+	if _, err := fmt.Sscanf(input, "%d", &id); err == nil && id > 0 && id <= maxJobs {
+		return id
+	}
+	return -1
+}
+
+// getDefaultAgentName returns the current default agent name.
+func (h *Handler) getDefaultAgentName() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.defaultName
 }

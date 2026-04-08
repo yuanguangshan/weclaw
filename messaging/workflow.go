@@ -500,16 +500,44 @@ func extractStepRest(line string) string {
 	return strings.TrimSpace(line[i:])
 }
 
-// parseAgentLine parses "@agent message" from a line, using the handler's parseCommand.
+// parseAgentLine parses "@agent message" from a line.
+// Only parses the first @agent to preserve @N step references in the message.
 func parseAgentLine(h *Handler, text string) (agentName, message string) {
 	if h == nil || text == "" {
 		return "", text
 	}
-	names, rest := h.parseCommand(text)
-	if len(names) > 0 {
-		return names[0], strings.TrimSpace(rest)
+
+	// Check if text starts with @ or /
+	trimmed := strings.TrimSpace(text)
+	if !strings.HasPrefix(trimmed, "@") && !strings.HasPrefix(trimmed, "/") {
+		return "", trimmed
 	}
-	return "", text
+
+	// Extract first @agent or /agent name
+	after := trimmed[1:]
+	idx := strings.IndexAny(after, " /@\n")
+	var agentToken string
+	var rest string
+	if idx < 0 {
+		// Rest is just the name, no message
+		agentToken = after
+		rest = ""
+	} else {
+		// Name ends at space, /, @, or newline
+		agentToken = after[:idx]
+		rest = strings.TrimSpace(trimmed[1+len(agentToken):])
+	}
+
+	// Resolve agent alias if handler is available
+	if h != nil && agentToken != "" {
+		resolved := h.resolveAlias(agentToken)
+		if resolved != "" && h.isKnownAgent(resolved) {
+			return resolved, rest
+		}
+	}
+
+	// Not a valid agent, return original text
+	return "", trimmed
 }
 
 // resolveStepRefs replaces @N and @N.B references with actual step output content.

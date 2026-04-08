@@ -261,9 +261,15 @@ func isBuiltinCommand(text string) bool {
 	for _, cmd := range []string{"/help", "/info", "/new", "/clear", "/cwd", "/save", "/hub", "/sh", "/$", "/q", "/podcast", "/debate", "/todo", "/timer", "/workflow"} {
 		if strings.HasPrefix(text, cmd) {
 			// Make sure it's the command itself, not an agent name that starts with "help" etc.
-			// e.g. "/helpful stuff" should not match, but "/help" and "/help " should
+			// e.g. "/helpful stuff" should not match, but "/help", "/help " and "/help\n" should
 			rest := strings.TrimPrefix(text, cmd)
-			return rest == "" || strings.HasPrefix(rest, " ")
+			if rest == "" {
+				return true
+			}
+			// Check if next character is whitespace (space, tab, newline, etc.)
+			// This handles both single-line and multi-line command formats
+			nextChar := rest[0]
+			return nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == '\r'
 		}
 	}
 	return false

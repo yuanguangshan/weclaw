@@ -283,6 +283,11 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 .badge-pending { background: #1e3a5f; color: #7dd3fc; }
 .badge-done { background: #1b4332; color: #34d399; }
 .badge-default { background: var(--accent); color: #fff; }
+.badge-success { background: #1b4332; color: #34d399; }
+.badge-muted { background: #3f3f3f; color: #9ca3af; }
+.badge-info { background: #1e3a5f; color: #7dd3fc; }
+.badge-purple { background: #2d1b69; color: #a78bfa; }
+.badge-warning { background: #3f2d1d; color: #fbbf24; }
 
 /* Logs */
 .log-viewer {
@@ -374,6 +379,9 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
     </div>
     <div class="nav-item" data-page="timers">
       <i class="icon">&#9201;</i><span>Timers</span>
+    </div>
+    <div class="nav-item" data-page="cron">
+      <i class="icon">&#128337;</i><span>Cron</span>
     </div>
     <div class="nav-item" data-page="logs">
       <i class="icon">&#128203;</i><span>Logs</span>
@@ -553,6 +561,27 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
             <tr><th>#</th><th>Label</th><th>Remaining</th><th>End Time</th><th>Status</th><th>Actions</th></tr>
           </thead>
           <tbody id="timers-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cron Jobs -->
+  <div id="page-cron" class="page">
+    <div class="page-header">
+      <h2>Cron Jobs</h2>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="openAddCronJob()">Add Job</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadCronJobs()">Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Cron Expr</th><th>Type</th><th>Content</th><th>User</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="cron-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -760,6 +789,7 @@ const pageLoaders = {
   hub: loadHub,
   todos: loadTodos,
   timers: loadTimers,
+  cron: loadCronJobs,
   logs: loadLogs,
   login: loadAccounts,
 };
@@ -1153,6 +1183,85 @@ async function cancelTimer(id) {
     await apiPut('/api/timers/' + id + '/cancel', {});
     toast('Timer cancelled', 'success');
     loadTimers();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// --- Cron Jobs ---
+async function loadCronJobs() {
+  try {
+    const items = await apiGet('/api/cron');
+    const tbody = document.getElementById('cron-tbody');
+    tbody.innerHTML = '';
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">No cron jobs</td></tr>';
+      return;
+    }
+    items.forEach(job => {
+      const statusBadge = job.enabled ? '<span class="badge badge-success">Enabled</span>' : '<span class="badge badge-muted">Disabled</span>';
+      const createdAt = new Date(job.created_at * 1000).toLocaleString();
+      const typeBadge = job.command.type === 'text' ? '<span class="badge badge-info">Text</span>' :
+                         job.command.type === 'workflow' ? '<span class="badge badge-purple">Workflow</span>' :
+                         job.command.type === 'agent' ? '<span class="badge badge-warning">Agent</span>' : '<span class="badge badge-secondary">' + job.command.type + '</span>';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><small>${job.id.substring(0, 20)}...</small></td>
+        <td><code>${esc(job.cron_expr)}</code></td>
+        <td>${typeBadge}</td>
+        <td>${esc(truncate(job.command.content, 40))}</td>
+        <td><small>${esc(job.user_id.substring(0, 15))}...</small></td>
+        <td>${statusBadge}</td>
+        <td>
+          <div class="btn-group">
+            ${job.enabled ? `<button class="btn btn-warning btn-sm" onclick="toggleCronJob('${job.id}', false)">Disable</button>` : `<button class="btn btn-success btn-sm" onclick="toggleCronJob('${job.id}', true)">Enable</button>`}
+            <button class="btn btn-danger btn-sm" onclick="deleteCronJob('${job.id}')">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    toast('Failed to load cron jobs: ' + e.message, 'error');
+  }
+}
+
+function openAddCronJob() {
+  // Simple prompt-based form - can be enhanced with a modal later
+  const expr = prompt('Cron expression (e.g., "0 9 * * *" for daily at 9am):');
+  if (!expr) return;
+  const content = prompt('Message content:');
+  if (!content) return;
+  const type = prompt('Type (text/workflow/agent):', 'text');
+  if (!type) return;
+
+  const job = {
+    cron_expr: expr,
+    command: {
+      type: type,
+      content: content
+    },
+    enabled: true,
+    user_id: 'admin'
+  };
+
+  apiPost('/api/cron', job).then(() => { toast('Cron job added', 'success'); loadCronJobs(); })
+    .catch(e => toast('Failed: ' + e.message, 'error'));
+}
+
+async function toggleCronJob(id, enable) {
+  try {
+    const action = enable ? 'enable' : 'disable';
+    await apiPut('/api/cron/' + id + '/' + action, {});
+    toast('Cron job ' + action + 'd', 'success');
+    loadCronJobs();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+async function deleteCronJob(id) {
+  if (!confirm('Delete this cron job?')) return;
+  try {
+    await apiDelete('/api/cron/' + id);
+    toast('Cron job deleted', 'success');
+    loadCronJobs();
   } catch(e) { toast('Failed: ' + e.message, 'error'); }
 }
 

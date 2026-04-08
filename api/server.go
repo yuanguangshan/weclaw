@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/fastclaw-ai/weclaw/ilink"
 	"github.com/fastclaw-ai/weclaw/messaging"
@@ -88,6 +92,13 @@ func (s *Server) Run(ctx context.Context) error {
 	mux.HandleFunc("GET /api/timers", s.handleListTimers)
 	mux.HandleFunc("POST /api/timers", s.handleAddTimer)
 	mux.HandleFunc("PUT /api/timers/{id}/cancel", s.handleCancelTimer)
+
+	// Admin API - Cron Jobs
+	mux.HandleFunc("GET /api/cron", s.handleListCronJobs)
+	mux.HandleFunc("POST /api/cron", s.handleAddCronJob)
+	mux.HandleFunc("DELETE /api/cron/{id}", s.handleDeleteCronJob)
+	mux.HandleFunc("PUT /api/cron/{id}/enable", s.handleEnableCronJob)
+	mux.HandleFunc("PUT /api/cron/{id}/disable", s.handleDisableCronJob)
 
 	// Admin UI
 	mux.HandleFunc("/admin", s.handleAdminUI)
@@ -173,4 +184,261 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// Cron Job types
+type CronJob struct {
+	ID        string       `json:"id"`
+	UserID    string       `json:"user_id"`
+	CronExpr  string       `json:"cron_expr"`
+	Command   CronCommand  `json:"command"`
+	Enabled   bool         `json:"enabled"`
+	CreatedAt int64        `json:"created_at"`
+	NextRun   int64        `json:"next_run,omitempty"`
+}
+
+type CronCommand struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	Agent   string `json:"agent,omitempty"`
+}
+
+type CronJobsFile struct {
+	Jobs []*CronJob `json:"jobs"`
+}
+
+// cronDataDir returns the directory where cron jobs are stored
+func cronDataDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "/tmp/.weclaw"
+	}
+	return filepath.Join(home, ".weclaw")
+}
+
+// loadCronJobs loads all cron jobs from disk
+func loadCronJobs() (*CronJobsFile, error) {
+	dataDir := cronDataDir()
+	data, err := os.ReadFile(filepath.Join(dataDir, "cron_jobs.json"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &CronJobsFile{Jobs: []*CronJob{}}, nil
+		}
+		return nil, err
+	}
+
+	var result CronJobsFile
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// saveCronJobs saves all cron jobs to disk
+func saveCronJobs(jobs *CronJobsFile) error {
+	dataDir := cronDataDir()
+	data, err := json.MarshalIndent(jobs, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(dataDir, "cron_jobs.json")
+	tmpPath := filePath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpPath, filePath)
+}
+
+// handleListCronJobs returns all cron jobs
+func (s *Server) handleListCronJobs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(jobs.Jobs)
+}
+
+// handleAddCronJob adds a new cron job
+func (s *Server) handleAddCronJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var job CronJob
+	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
+		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if job.CronExpr == "" {
+		http.Error(w, `"cron_expr" is required`, http.StatusBadRequest)
+		return
+	}
+	if job.Command.Content == "" {
+		http.Error(w, `"command.content" is required`, http.StatusBadRequest)
+		return
+	}
+	if job.Command.Type == "" {
+		job.Command.Type = "text"
+	}
+
+	// Generate ID if not provided
+	if job.ID == "" {
+		job.ID = fmt.Sprintf("cron_%d", time.Now().UnixNano())
+	}
+
+	// Set created at if not provided
+	if job.CreatedAt == 0 {
+		job.CreatedAt = time.Now().Unix()
+	}
+
+	// Load existing jobs
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Add new job
+	jobs.Jobs = append(jobs.Jobs, &job)
+
+	// Save
+	if err := saveCronJobs(jobs); err != nil {
+		http.Error(w, "Failed to save cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"job":    job,
+	})
+}
+
+// handleDeleteCronJob deletes a cron job
+func (s *Server) handleDeleteCronJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "DELETE only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract ID from URL path
+	id := strings.TrimPrefix(r.URL.Path, "/api/cron/")
+	if id == "" {
+		http.Error(w, "job ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Load existing jobs
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Find and remove job
+	found := false
+	var filtered []*CronJob
+	for _, j := range jobs.Jobs {
+		if j.ID == id {
+			found = true
+		} else {
+			filtered = append(filtered, j)
+		}
+	}
+
+	if !found {
+		http.Error(w, "job not found", http.StatusNotFound)
+		return
+	}
+
+	jobs.Jobs = filtered
+
+	// Save
+	if err := saveCronJobs(jobs); err != nil {
+		http.Error(w, "Failed to save cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleEnableCronJob enables a cron job
+func (s *Server) handleEnableCronJob(w http.ResponseWriter, r *http.Request) {
+	s.updateCronJobEnabled(w, r, true)
+}
+
+// handleDisableCronJob disables a cron job
+func (s *Server) handleDisableCronJob(w http.ResponseWriter, r *http.Request) {
+	s.updateCronJobEnabled(w, r, false)
+}
+
+// updateCronJobEnabled updates the enabled status of a cron job
+func (s *Server) updateCronJobEnabled(w http.ResponseWriter, r *http.Request, enabled bool) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "PUT only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract ID from URL path
+	id := strings.TrimPrefix(r.URL.Path, "/api/cron/")
+	id = strings.TrimSuffix(id, "/enable")
+	id = strings.TrimSuffix(id, "/disable")
+	if id == "" {
+		http.Error(w, "job ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Load existing jobs
+	jobs, err := loadCronJobs()
+	if err != nil {
+		http.Error(w, "Failed to load cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Find and update job
+	found := false
+	for _, j := range jobs.Jobs {
+		if j.ID == id {
+			j.Enabled = enabled
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		http.Error(w, "job not found", http.StatusNotFound)
+		return
+	}
+
+	// Save
+	if err := saveCronJobs(jobs); err != nil {
+		http.Error(w, "Failed to save cron jobs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	status := "disabled"
+	if enabled {
+		status = "enabled"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+		"job":    status,
+	})
 }

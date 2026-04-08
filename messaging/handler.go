@@ -2857,42 +2857,62 @@ func (h *Handler) handleCronList(ctx context.Context, userID string) string {
 
 // handleCronAdd adds a new cron job.
 func (h *Handler) handleCronAdd(ctx context.Context, userID string, args []string) string {
-	if len(args) < 2 {
-		return "用法: /cron add \"<cron表达式>\" <消息内容>\n   /cron add \"<cron表达式>\" workflow <工作流DSL>\n\n示例:\n   /cron add \"0 9 * * *\" 早上好，记得喝水\n   /cron add \"0 9 * * 1\" workflow step1 @claude 生成周报\n\nCron 表达式格式: 秒 分 时 日 月 周\n   \"0 9 * * *\" - 每天 9:00\n   \"0 9 * * 1\" - 每周一 9:00\n   \"0 */30 * * *\" - 每 30 分钟"
+	if len(args) < 1 {
+		return "用法: /cron add <定时描述>\n   /cron add \"<cron表达式>\" <消息内容>\n\n示例:\n   /cron add 每天早上9点提醒我喝水\n   /cron add 每周一早上8点生成周报\n   /cron add \"0 9 * * *\" workflow step1 @claude 生成周报"
 	}
 
-	cronExpr := args[0]
-	// Remove quotes if present
-	cronExpr = strings.Trim(cronExpr, "\"")
+	// Check if args[0] looks like a cron expression (contains numbers or *)
+	possibleCronExpr := args[0]
+	possibleCronExpr = strings.Trim(possibleCronExpr, "\"")
 
-	// Validate cron expression
-	if err := validateCronExpr(cronExpr); err != nil {
-		return fmt.Sprintf("❌ Cron 表达式无效: %v\n\n格式: 秒 分 时 日 月 周\n示例: \"0 9 * * *\"", err)
+	isCronExpr := false
+	for _, ch := range possibleCronExpr {
+		if ch >= '0' && ch <= '9' || ch == '*' {
+			isCronExpr = true
+			break
+		}
 	}
 
-	var cmdType string
-	var cmdContent string
-	var cmdAgent string
+	var cronExpr, cmdType, cmdContent, cmdAgent string
 
-	// Check if second arg is a command type
-	switch args[1] {
-	case "workflow", "wf":
-		if len(args) < 3 {
-			return "❌ 工作流内容不能为空\n用法: /cron add \"0 9 * * *\" workflow step1 @claude 分析..."
+	if isCronExpr {
+		// User provided cron expression directly
+		cronExpr = possibleCronExpr
+
+		// Validate cron expression
+		if err := validateCronExpr(cronExpr); err != nil {
+			return fmt.Sprintf("❌ Cron 表达式无效: %v\n\n格式: 秒 分 时 日 月 周\n示例: \"0 9 * * *\" - 每天 9:00", err)
 		}
-		cmdType = "workflow"
-		cmdContent = strings.Join(args[2:], " ")
-	case "agent":
-		if len(args) < 4 {
-			return "❌ Agent 任务格式错误\n用法: /cron add \"0 9 * * *\" agent @claude 消息内容"
+
+		// Parse the rest of args
+		if len(args) < 2 {
+			return "❌ 请提供消息内容\n用法: /cron add \"0 9 * * *\" 消息内容"
 		}
-		cmdType = "agent"
-		cmdAgent = args[2]
-		cmdContent = strings.Join(args[3:], " ")
-	default:
-		// Default to text type
-		cmdType = "text"
-		cmdContent = strings.Join(args[1:], " ")
+
+		// Check if second arg is a command type
+		switch args[1] {
+		case "workflow", "wf":
+			if len(args) < 3 {
+				return "❌ 工作流内容不能为空\n用法: /cron add \"0 9 * * *\" workflow step1 @claude 分析..."
+			}
+			cmdType = "workflow"
+			cmdContent = strings.Join(args[2:], " ")
+		case "agent":
+			if len(args) < 4 {
+				return "❌ Agent 任务格式错误\n用法: /cron add \"0 9 * * *\" agent @claude 消息内容"
+			}
+			cmdType = "agent"
+			cmdAgent = args[2]
+			cmdContent = strings.Join(args[3:], " ")
+		default:
+			// Default to text type
+			cmdType = "text"
+			cmdContent = strings.Join(args[1:], " ")
+		}
+	} else {
+		// User provided natural language - use AI to parse
+		naturalLang := strings.Join(args, " ")
+		return h.handleNaturalLanguageCron(ctx, userID, naturalLang)
 	}
 
 	// Generate job ID
@@ -2916,6 +2936,99 @@ func (h *Handler) handleCronAdd(ctx context.Context, userID string, args []strin
 	}
 
 	return fmt.Sprintf("✅ 定时任务已添加\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, cronExpr, cmdType, truncate(cmdContent, 50))
+}
+
+// handleNaturalLanguageCron parses natural language and creates a cron job.
+func (h *Handler) handleNaturalLanguageCron(ctx context.Context, userID, naturalLang string) string {
+	// Use default agent to parse natural language
+	prompt := fmt.Sprintf(`请将以下自然语言描述转换为 cron 定时任务。
+
+返回格式必须是 JSON，不要有任何其他文字：
+{
+  "cron_expr": "秒 分 时 日 月 周 格式的 cron 表达式",
+  "message": "要发送的消息内容",
+  "type": "text 或 workflow 或 agent"
+}
+
+自然语言描述: %s
+
+注意：
+1. cron 表达式使用 6 位格式：秒 分 时 日 月 周
+2. 每天9点: "0 9 * * *"
+3. 每周一早上8点: "0 8 * * 1"
+4. 每30分钟: "0 */30 * * *"
+5. 如果描述中包含 "workflow"、"工作流" 关键词，type 设为 "workflow"，message 设为工作流 DSL
+6. 如果描述中包含 "@agent" 格式，type 设为 "agent"
+7. 其他情况 type 设为 "text"
+
+请只返回 JSON，不要有任何解释。`, naturalLang)
+
+	ag := h.getDefaultAgent()
+	if ag == nil {
+		return "❌ 默认 agent 不可用，请使用 cron 表达式格式\n\n示例: /cron add \"0 9 * * *\" 消息内容"
+	}
+
+	reply, err := ag.Chat(ctx, userID+"_cron_parse", prompt)
+	if err != nil {
+		return fmt.Sprintf("❌ AI 解析失败: %v\n\n请使用标准 cron 表达式格式：\n/cron add \"0 9 * * *\" 消息内容", err)
+	}
+
+	// Extract JSON from reply
+	jsonStart := strings.Index(reply, "{")
+	jsonEnd := strings.LastIndex(reply, "}")
+	if jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart {
+		return fmt.Sprintf("❌ AI 返回格式错误\n\n返回内容:\n%s\n\n请使用标准 cron 表达式格式：\n/cron add \"0 9 * * *\" 消息内容", reply)
+	}
+
+	jsonStr := reply[jsonStart : jsonEnd+1]
+
+	// Parse JSON
+	var result struct {
+		CronExpr string `json:"cron_expr"`
+		Message  string `json:"message"`
+		Type     string `json:"type"`
+	}
+
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+		return fmt.Sprintf("❌ AI 返回 JSON 解析失败: %v\n\n返回内容:\n%s\n\n请使用标准 cron 表达式格式：\n/cron add \"0 9 * * *\" 消息内容", err)
+	}
+
+	// Validate cron expression
+	if err := validateCronExpr(result.CronExpr); err != nil {
+		return fmt.Sprintf("❌ AI 返回的 cron 表达式无效: %v\n\n表达式: %s\n\n请重试或使用标准 cron 表达式格式", err, result.CronExpr)
+	}
+
+	// Generate job ID
+	jobID := fmt.Sprintf("cron_%d", time.Now().UnixNano())
+
+	var cmdAgent string
+	if result.Type == "agent" {
+		// Extract agent from message
+		parts := strings.Fields(result.Message)
+		if len(parts) > 0 && strings.HasPrefix(parts[0], "@") {
+			cmdAgent = strings.TrimPrefix(parts[0], "@")
+			result.Message = strings.Join(parts[1:], " ")
+		}
+	}
+
+	job := &CronJob{
+		ID:       jobID,
+		UserID:   userID,
+		CronExpr: result.CronExpr,
+		Command: CronCommand{
+			Type:    result.Type,
+			Content: result.Message,
+			Agent:   cmdAgent,
+		},
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
+	}
+
+	if err := h.cronManager.AddJob(job); err != nil {
+		return fmt.Sprintf("❌ 添加任务失败: %v", err)
+	}
+
+	return fmt.Sprintf("✅ 定时任务已添加（AI 解析）\n\nID: %s\n表达式: %s\n类型: %s\n内容: %s", jobID, result.CronExpr, result.Type, truncate(result.Message, 50))
 }
 
 // handleCronRemove removes a cron job.

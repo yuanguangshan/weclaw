@@ -351,9 +351,6 @@ func (s *Server) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 // --- Logs ---
 
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
-	home, _ := os.UserHomeDir()
-	logPath := filepath.Join(home, ".weclaw", "weclaw.log")
-
 	lines := 200
 	if l := r.URL.Query().Get("lines"); l != "" {
 		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 2000 {
@@ -361,20 +358,50 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Try systemd journal first (daemon running under systemd)
+	result, err := s.readLogsFromJournal(lines)
+	if err != nil {
+		// Fall back to log file
+		result = s.readLogsFromFile(lines)
+	}
+
+	writeJSON(w, result)
+}
+
+func (s *Server) readLogsFromJournal(n int) ([]string, error) {
+	cmd := exec.Command("journalctl", "-u", "weclaw", "-n", strconv.Itoa(n), "--no-pager", "-o", "cat")
+	cmd.Stdout = nil
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	text := strings.TrimSpace(string(out))
+	if text == "" {
+		return []string{}, nil
+	}
+	result := strings.Split(text, "\n")
+	if result == nil {
+		result = []string{}
+	}
+	return result, nil
+}
+
+func (s *Server) readLogsFromFile(n int) []string {
+	home, _ := os.UserHomeDir()
+	logPath := filepath.Join(home, ".weclaw", "weclaw.log")
+
 	f, err := os.Open(logPath)
 	if err != nil {
-		writeJSON(w, []string{})
-		return
+		return []string{}
 	}
 	defer f.Close()
 
-	// Read last N lines efficiently
 	var result []string
 	scanner := bufio.NewScanner(f)
-	buf := make([]string, 0, lines)
+	buf := make([]string, 0, n)
 	for scanner.Scan() {
 		buf = append(buf, scanner.Text())
-		if len(buf) > lines {
+		if len(buf) > n {
 			buf = buf[1:]
 		}
 	}
@@ -382,7 +409,7 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 	if result == nil {
 		result = []string{}
 	}
-	writeJSON(w, result)
+	return result
 }
 
 // --- Hub ---
@@ -834,21 +861,23 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request) {
 		f.Flush()
 	}
 
-	// 3. 后台：停服务 → 替换二进制 → 启动服务
+	// 3. 后台：替换二进制 → 重启
+	// 不能先 stop 再 copy，因为 stop 会杀掉当前进程（包括这个 goroutine）
+	// 改用 os.Remove + CopyFile：Remove 解除旧 inode 链接（运行中进程仍持有旧 inode），
+	// CopyFile 创建新文件，最后 systemctl restart 瞬间返回，systemd 异步重启
 	go func() {
-		// 停止服务
-		stopCmd := exec.Command("systemctl", "stop", "weclaw")
-		if out, err := stopCmd.CombinedOutput(); err != nil {
-			log.Printf("[update] stop failed: %s: %s", err, string(out))
-			return
+		dst := "/usr/local/bin/weclaw"
+
+		// 解除旧文件链接，避免 "Text file busy"
+		if err := os.Remove(dst); err != nil && !os.IsNotExist(err) {
+			log.Printf("[update] remove old binary failed: %s", err)
+			// fallback: 直接用 cp 覆盖
 		}
 
-		// 替换二进制
-		dst := "/usr/local/bin/weclaw"
+		// 写入新二进制
 		if err := CopyFile(dst, tmpFile); err != nil {
 			log.Printf("[update] copy failed: %s", err)
-			// 替换失败也要启动回来
-			exec.Command("systemctl", "start", "weclaw").Run()
+			os.Remove(tmpFile)
 			return
 		}
 		os.Remove(tmpFile)
@@ -857,9 +886,9 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[update] chmod failed: %s", err)
 		}
 
-		// 启动服务
+		// 重启（systemctl restart 命令瞬间返回，systemd 异步执行 stop+start）
 		time.Sleep(300 * time.Millisecond)
-		exec.Command("systemctl", "start", "weclaw").Run()
+		exec.Command("systemctl", "restart", "weclaw").Run()
 	}()
 }
 

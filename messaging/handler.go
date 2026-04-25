@@ -1585,12 +1585,19 @@ func (h *Handler) analyzeWithNanobot(ctx context.Context, client *ilink.Client, 
 		log.Printf("[handler] failed to send analysis reply to %s: %v", msg.FromUserID, err)
 	}
 
-	// Optionally send to remote clipboard endpoint
+	// Optionally send to remote clipboard endpoint (include original article + AI analysis)
 	if h.remoteClipboardURL != "" {
 		go func() {
 			clipboardCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			if err := h.sendToClipboard(clipboardCtx, reply); err != nil {
+			var clipboardContent string
+			if meta.Body != "" {
+				clipboardContent = fmt.Sprintf("【原文】\n标题：%s\n\n%s\n\n━━━━━━━━━━━━━━━━\n\n【AI 解读】\n%s",
+					meta.Title, meta.Body, reply)
+			} else {
+				clipboardContent = reply
+			}
+			if err := h.sendToClipboard(clipboardCtx, clipboardContent); err != nil {
 				log.Printf("[handler] failed to send to clipboard: %v", err)
 			}
 		}()

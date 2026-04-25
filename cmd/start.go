@@ -139,6 +139,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 		log.Printf("Image save directory: %s", cfg.SaveDir)
 	}
 
+	// Set remote clipboard endpoint for AI replies if configured
+	if cfg.RemoteClipboardURL != "" {
+		handler.SetRemoteClipboard(cfg.RemoteClipboardURL, cfg.RemoteClipboardKey)
+		log.Printf("Remote clipboard endpoint: %s", cfg.RemoteClipboardURL)
+	}
+
 	// Start default agent initialization in background so monitors can start immediately
 	go func() {
 		if cfg.DefaultAgent == "" {

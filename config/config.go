@@ -14,6 +14,9 @@ type Config struct {
 	APIAddr      string                 `json:"api_addr,omitempty"`
 	SaveDir      string                 `json:"save_dir,omitempty"`
 	Agents       map[string]AgentConfig `json:"agents"`
+	// RemoteClipboardConfig holds configuration for sending AI replies to remote clipboard endpoint
+	RemoteClipboardURL string `json:"remote_clipboard_url,omitempty"`
+	RemoteClipboardKey string `json:"remote_clipboard_key,omitempty"`
 }
 
 // AgentConfig holds configuration for a single agent.
@@ -118,6 +121,12 @@ func loadEnv(cfg *Config) {
 	}
 	if v := os.Getenv("WECLAW_SAVE_DIR"); v != "" {
 		cfg.SaveDir = v
+	}
+	if v := os.Getenv("WECLAW_REMOTE_CLIPBOARD_URL"); v != "" {
+		cfg.RemoteClipboardURL = v
+	}
+	if v := os.Getenv("WECLAW_REMOTE_CLIPBOARD_KEY"); v != "" {
+		cfg.RemoteClipboardKey = v
 	}
 }
 

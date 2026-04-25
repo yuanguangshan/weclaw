@@ -63,6 +63,9 @@ type Handler struct {
 	timerStore      *TimerStore
 	cronManager     *CronManager
 	clients         []*ilink.Client
+	// Remote clipboard configuration for sending AI replies to remote endpoint
+	remoteClipboardURL string
+	remoteClipboardKey string
 }
 
 // progressContext holds context for sending progress notifications.
@@ -103,6 +106,12 @@ func (h *Handler) SetHub(hu *hub.Hub) {
 // SetSaveDir sets the directory for saving images and files.
 func (h *Handler) SetSaveDir(dir string) {
 	h.saveDir = dir
+}
+
+// SetRemoteClipboard sets the remote clipboard endpoint configuration.
+func (h *Handler) SetRemoteClipboard(url, key string) {
+	h.remoteClipboardURL = url
+	h.remoteClipboardKey = key
 }
 
 // cleanSeenMsgs removes entries older than 5 minutes from the dedup cache.
@@ -1575,6 +1584,17 @@ func (h *Handler) analyzeWithNanobot(ctx context.Context, client *ilink.Client, 
 	if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 		log.Printf("[handler] failed to send analysis reply to %s: %v", msg.FromUserID, err)
 	}
+
+	// Optionally send to remote clipboard endpoint
+	if h.remoteClipboardURL != "" {
+		go func() {
+			clipboardCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := h.sendToClipboard(clipboardCtx, reply); err != nil {
+				log.Printf("[handler] failed to send to clipboard: %v", err)
+			}
+		}()
+	}
 }
 
 func buildHelpText() string {
@@ -2102,6 +2122,46 @@ func (h *Handler) sendToPodcast(ctx context.Context, text string) error {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
+	return nil
+}
+
+// sendToClipboard sends content to the remote clipboard endpoint.
+func (h *Handler) sendToClipboard(ctx context.Context, content string) error {
+	if h.remoteClipboardURL == "" {
+		return fmt.Errorf("remote clipboard URL not configured")
+	}
+
+	// Build payload - wrap content in JSON as per Cloudflare Worker spec
+	payload := map[string]string{
+		"content": content,
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.remoteClipboardURL+"/push", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if h.remoteClipboardKey != "" {
+		req.Header.Set("X-Auth-Key", h.remoteClipboardKey)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	log.Printf("[clipboard] sent content to remote endpoint, status=%d", resp.StatusCode)
 	return nil
 }
 

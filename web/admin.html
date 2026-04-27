@@ -383,6 +383,9 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
     <div class="nav-item" data-page="cron">
       <i class="icon">&#128337;</i><span>Cron</span>
     </div>
+    <div class="nav-item" data-page="settings">
+      <i class="icon">&#9881;</i><span>Settings</span>
+    </div>
     <div class="nav-item" data-page="logs">
       <i class="icon">&#128203;</i><span>Logs</span>
     </div>
@@ -584,6 +587,30 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
           <tbody id="cron-tbody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div id="page-settings" class="page">
+    <div class="page-header">
+      <h2>Settings</h2>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="loadSettings()">Refresh</button>
+      </div>
+    </div>
+    <div class="card" style="max-width:600px;">
+      <div class="card-title">Relay Configuration</div>
+      <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">Push AI Q&A pairs and disconnection notices to a remote endpoint.</p>
+      <div class="form-group">
+        <label>Relay URL</label>
+        <input id="setting-relay-url" placeholder="https://example.com/push">
+      </div>
+      <div class="form-group">
+        <label>Auth Key</label>
+        <input id="setting-relay-authkey" type="password" placeholder="X-Auth-Key value">
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      <span id="settings-msg" style="margin-left:12px;font-size:13px;"></span>
     </div>
   </div>
 
@@ -790,6 +817,7 @@ const pageLoaders = {
   todos: loadTodos,
   timers: loadTimers,
   cron: loadCronJobs,
+  settings: loadSettings,
   logs: loadLogs,
   login: loadAccounts,
 };
@@ -1268,6 +1296,37 @@ async function deleteCronJob(id) {
     toast('Cron job deleted', 'success');
     loadCronJobs();
   } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// --- Settings ---
+async function loadSettings() {
+  try {
+    const cfg = await apiGet('/api/config');
+    document.getElementById('setting-relay-url').value = cfg.relay_url || '';
+    document.getElementById('setting-relay-authkey').value = cfg.relay_auth_key || '';
+    document.getElementById('settings-msg').textContent = '';
+  } catch(e) {
+    toast('Failed to load settings: ' + e.message, 'error');
+  }
+}
+
+async function saveSettings() {
+  const relayURL = document.getElementById('setting-relay-url').value.trim();
+  const authKey = document.getElementById('setting-relay-authkey').value.trim();
+  const msg = document.getElementById('settings-msg');
+  try {
+    await apiPut('/api/config', {
+      relay_url: relayURL,
+      relay_auth_key: authKey
+    });
+    msg.textContent = 'Saved! Restart weclaw to apply.';
+    msg.style.color = 'var(--success)';
+    toast('Settings saved', 'success');
+  } catch(e) {
+    msg.textContent = 'Failed: ' + e.message;
+    msg.style.color = 'var(--danger)';
+    toast('Failed: ' + e.message, 'error');
+  }
 }
 
 // --- Logs ---

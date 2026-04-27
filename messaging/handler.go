@@ -66,6 +66,9 @@ type Handler struct {
 	// Remote clipboard configuration for sending AI replies to remote endpoint
 	remoteClipboardURL string
 	remoteClipboardKey string
+	// Relay configuration for relaying Q&A pairs and disconnection notices
+	relayURL     string
+	relayAuthKey string
 }
 
 // progressContext holds context for sending progress notifications.
@@ -112,6 +115,12 @@ func (h *Handler) SetSaveDir(dir string) {
 func (h *Handler) SetRemoteClipboard(url, key string) {
 	h.remoteClipboardURL = url
 	h.remoteClipboardKey = key
+}
+
+// SetRelay sets the relay endpoint configuration for Q&A pairs.
+func (h *Handler) SetRelay(url, key string) {
+	h.relayURL = url
+	h.relayAuthKey = key
 }
 
 // cleanSeenMsgs removes entries older than 5 minutes from the dedup cache.
@@ -690,6 +699,10 @@ func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, 
 		reply = "[echo] " + text
 	}
 
+	if h.relayURL != "" {
+		go h.sendToRelay(ctx, defaultName, text, reply)
+	}
+
 	h.sendReplyWithMedia(ctx, client, msg, defaultName, reply, clientID)
 }
 
@@ -706,6 +719,9 @@ func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, ms
 	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message, client, msg.ContextToken)
 	if err != nil {
 		reply = fmt.Sprintf("Error: %v", err)
+	}
+	if h.relayURL != "" {
+		go h.sendToRelay(ctx, name, message, reply)
 	}
 	h.sendReplyWithMedia(ctx, client, msg, name, reply, clientID)
 }
@@ -741,6 +757,9 @@ func (h *Handler) broadcastToAgents(ctx context.Context, client *ilink.Client, m
 		r := <-ch
 		reply := fmt.Sprintf("[%s] %s", r.name, r.reply)
 		clientID := NewClientID()
+		if h.relayURL != "" {
+			go h.sendToRelay(ctx, r.name, message, r.reply)
+		}
 		h.sendReplyWithMedia(ctx, client, msg, r.name, reply, clientID)
 	}
 }
@@ -2170,6 +2189,88 @@ func (h *Handler) sendToClipboard(ctx context.Context, content string) error {
 
 	log.Printf("[clipboard] sent content to remote endpoint, status=%d", resp.StatusCode)
 	return nil
+}
+
+// sendToRelay sends a Q&A pair or notification to the relay endpoint.
+func (h *Handler) sendToRelay(ctx context.Context, agentName, question, reply string) {
+	if h.relayURL == "" {
+		return
+	}
+
+	ts := time.Now().Format("2006-01-02 15:04:05")
+	content := fmt.Sprintf("## %s (%s)\n\n**Q:** %s\n\n**A:** %s", agentName, ts, question, reply)
+
+	payload := map[string]string{"content": content}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("[relay] marshal payload: %v", err)
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.relayURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		log.Printf("[relay] create request: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if h.relayAuthKey != "" {
+		req.Header.Set("X-Auth-Key", h.relayAuthKey)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[relay] push failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		log.Printf("[relay] pushed to %s (status=%d)", h.relayURL, resp.StatusCode)
+	} else {
+		log.Printf("[relay] push returned non-2xx: status=%d", resp.StatusCode)
+	}
+}
+
+// SendDisconnectNotice sends a disconnection notification to the relay endpoint.
+func SendDisconnectNotice(ctx context.Context, relayURL, relayAuthKey, botID, reason string) {
+	if relayURL == "" {
+		return
+	}
+
+	ts := time.Now().Format("2006-01-02 15:04:05")
+	content := fmt.Sprintf("## 断线通知 (%s)\n\n**Bot:** %s\n\n**原因:** %s", ts, botID, reason)
+
+	payload := map[string]string{"content": content}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("[relay] marshal payload: %v", err)
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, relayURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		log.Printf("[relay] create request: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if relayAuthKey != "" {
+		req.Header.Set("X-Auth-Key", relayAuthKey)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[relay] disconnect push failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		log.Printf("[relay] disconnect push to %s (status=%d)", relayURL, resp.StatusCode)
+	} else {
+		log.Printf("[relay] disconnect push returned non-2xx: status=%d", resp.StatusCode)
+	}
 }
 
 // handlePodcast processes /podcast command.

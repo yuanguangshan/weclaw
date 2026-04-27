@@ -145,6 +145,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 		log.Printf("Remote clipboard endpoint: %s", cfg.RemoteClipboardURL)
 	}
 
+	// Set relay endpoint for Q&A pairs if configured
+	if cfg.RelayURL != "" {
+		handler.SetRelay(cfg.RelayURL, cfg.RelayAuthKey)
+		log.Printf("Relay endpoint: %s", cfg.RelayURL)
+	}
+
 	// Start default agent initialization in background so monitors can start immediately
 	go func() {
 		if cfg.DefaultAgent == "" {
@@ -206,7 +212,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		wg.Add(1)
 		go func(c *ilink.Credentials) {
 			defer wg.Done()
-			runMonitorWithRestart(ctx, c, handler)
+			runMonitorWithRestart(ctx, c, handler, cfg.RelayURL, cfg.RelayAuthKey)
 		}(creds)
 	}
 
@@ -216,7 +222,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 }
 
 // runMonitorWithRestart runs a monitor with automatic restart on failure.
-func runMonitorWithRestart(ctx context.Context, creds *ilink.Credentials, handler *messaging.Handler) {
+func runMonitorWithRestart(ctx context.Context, creds *ilink.Credentials, handler *messaging.Handler, relayURL, relayAuthKey string) {
 	const maxRestartDelay = 30 * time.Second
 	restartDelay := 3 * time.Second
 
@@ -236,7 +242,13 @@ func runMonitorWithRestart(ctx context.Context, creds *ilink.Credentials, handle
 			return
 		}
 
-		log.Printf("[%s] Monitor stopped: %v, restarting in %s", creds.ILinkBotID, err, restartDelay)
+		reason := fmt.Sprintf("%v", err)
+		log.Printf("[%s] Monitor stopped: %s, restarting in %s", creds.ILinkBotID, reason, restartDelay)
+
+		if relayURL != "" {
+			go messaging.SendDisconnectNotice(ctx, relayURL, relayAuthKey, creds.ILinkBotID, reason)
+		}
+
 		select {
 		case <-time.After(restartDelay):
 		case <-ctx.Done():

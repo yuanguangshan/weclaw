@@ -62,6 +62,8 @@ func (s *Server) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 		DefaultAgent string `json:"default_agent"`
 		APIAddr      string `json:"api_addr"`
 		SaveDir      string `json:"save_dir"`
+		RelayURL     string `json:"relay_url"`
+		RelayAuthKey string `json:"relay_auth_key"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
@@ -81,6 +83,8 @@ func (s *Server) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	if req.SaveDir != "" {
 		cfg.SaveDir = req.SaveDir
 	}
+	cfg.RelayURL = req.RelayURL
+	cfg.RelayAuthKey = req.RelayAuthKey
 	if err := config.Save(cfg); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

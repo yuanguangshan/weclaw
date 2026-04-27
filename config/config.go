@@ -17,6 +17,9 @@ type Config struct {
 	// RemoteClipboardConfig holds configuration for sending AI replies to remote clipboard endpoint
 	RemoteClipboardURL string `json:"remote_clipboard_url,omitempty"`
 	RemoteClipboardKey string `json:"remote_clipboard_key,omitempty"`
+	// RelayConfig holds configuration for relaying Q&A pairs and disconnection notices
+	RelayURL     string `json:"relay_url,omitempty"`
+	RelayAuthKey string `json:"relay_auth_key,omitempty"`
 }
 
 // AgentConfig holds configuration for a single agent.
@@ -127,6 +130,12 @@ func loadEnv(cfg *Config) {
 	}
 	if v := os.Getenv("WECLAW_REMOTE_CLIPBOARD_KEY"); v != "" {
 		cfg.RemoteClipboardKey = v
+	}
+	if v := os.Getenv("WECLAW_RELAY_URL"); v != "" {
+		cfg.RelayURL = v
+	}
+	if v := os.Getenv("WECLAW_RELAY_AUTH_KEY"); v != "" {
+		cfg.RelayAuthKey = v
 	}
 }
 

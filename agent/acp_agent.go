@@ -118,10 +118,9 @@ type promptParams struct {
 type promptEntry struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
-	URL      string `json:"url,omitempty"`
-	Path     string `json:"path,omitempty"`
-	Data     string `json:"data,omitempty"`
-	MimeType string `json:"mimeType,omitempty"`
+	URI      string `json:"uri,omitempty"`
+	Data     string `json:"data"`
+	MimeType string `json:"mimeType"`
 }
 
 type promptResult struct {
@@ -594,31 +593,32 @@ func buildPromptEntries(message string, media []MediaEntry) []promptEntry {
 
 	// Add media entries first
 	for _, m := range media {
-		entry := promptEntry{Type: m.Type}
 		switch m.Type {
 		case "image":
+			entry := promptEntry{Type: "image", MimeType: m.MIMEType}
 			if m.URL != "" {
-				entry.URL = m.URL
+				entry.URI = m.URL
 			} else if m.Path != "" {
-				entry.Path = m.Path
+				entry.URI = "file://" + m.Path
 			}
+			entries = append(entries, entry)
 		case "file":
-			entry.Type = "file"
+			entry := promptEntry{Type: "file", MimeType: m.MIMEType}
 			if m.URL != "" {
-				entry.URL = m.URL
+				entry.URI = m.URL
 			} else if m.Path != "" {
-				entry.Path = m.Path
+				entry.URI = "file://" + m.Path
 			}
-			entry.MimeType = m.MIMEType
+			entries = append(entries, entry)
 		case "video":
-			entry.Type = "video"
+			entry := promptEntry{Type: "video", MimeType: m.MIMEType}
 			if m.URL != "" {
-				entry.URL = m.URL
+				entry.URI = m.URL
 			} else if m.Path != "" {
-				entry.Path = m.Path
+				entry.URI = "file://" + m.Path
 			}
+			entries = append(entries, entry)
 		}
-		entries = append(entries, entry)
 	}
 
 	// Add text entry
@@ -1322,14 +1322,25 @@ func (w *acpStderrWriter) Write(p []byte) (int, error) {
 	for _, line := range lines {
 		if line != "" {
 			log.Printf("%s %s", w.prefix, line)
-			// Capture lines that look like actual error messages (not traceback frames)
-			if !strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "Traceback") && !strings.HasPrefix(line, "...") {
+			// Capture lines that look like actual errors (skip INFO, DEBUG, normal logs)
+			if isLikelyError(line) {
 				w.last = line
 			}
 		}
 	}
 	w.mu.Unlock()
 	return len(p), nil
+}
+
+// isLikelyError checks if a log line looks like an error rather than an info/debug message.
+func isLikelyError(line string) bool {
+	upper := strings.ToUpper(line)
+	for _, kw := range []string{"ERROR", "EXCEPTION", "CRITICAL", "FATAL", "PANIC", "Traceback", "FAILED", "FAILURE", "[err]", "[error]", "ERR:"} {
+		if strings.Contains(upper, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 // LastError returns the last captured error line and resets it.

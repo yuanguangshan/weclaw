@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/fastclaw-ai/weclaw/agent"
 	"github.com/fastclaw-ai/weclaw/hub"
@@ -2197,8 +2198,21 @@ func (h *Handler) sendToRelay(ctx context.Context, agentName, question, reply st
 		return
 	}
 
+	// Generate title from question: strip punctuation, replace with underscores
+	title := strings.Map(func(r rune) rune {
+		if unicode.IsPunct(r) || unicode.IsSymbol(r) {
+			return '_'
+		}
+		return r
+	}, question)
+	// Collapse consecutive underscores
+	for strings.Contains(title, "__") {
+		title = strings.ReplaceAll(title, "__", "_")
+	}
+	title = strings.Trim(title, "_")
+
 	ts := time.Now().Format("2006-01-02 15:04:05")
-	content := fmt.Sprintf("## %s (%s)\n\n**Q:** %s\n\n**A:** %s", agentName, ts, question, reply)
+	content := fmt.Sprintf("# %s\n\n## %s (%s)\n\n**Q:** %s\n\n**A:** %s", title, agentName, ts, question, reply)
 
 	payload := map[string]string{"content": content}
 	bodyBytes, err := json.Marshal(payload)

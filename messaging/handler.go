@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/fastclaw-ai/weclaw/agent"
 	"github.com/fastclaw-ai/weclaw/hub"
@@ -2210,9 +2211,10 @@ func (h *Handler) sendToRelay(ctx context.Context, agentName, question, reply st
 		title = strings.ReplaceAll(title, "__", "_")
 	}
 	title = strings.Trim(title, "_")
-	// Truncate to 50 characters if too long
-	if len(title) > 50 {
-		title = title[:50]
+	// Truncate to 50 runes (characters) if too long
+	if utf8.RuneCountInString(title) > 50 {
+		runes := []rune(title)
+		title = string(runes[:50])
 		title = strings.TrimRight(title, "_")
 	}
 

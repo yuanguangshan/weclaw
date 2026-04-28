@@ -2210,6 +2210,11 @@ func (h *Handler) sendToRelay(ctx context.Context, agentName, question, reply st
 		title = strings.ReplaceAll(title, "__", "_")
 	}
 	title = strings.Trim(title, "_")
+	// Truncate to 50 characters if too long
+	if len(title) > 50 {
+		title = title[:50]
+		title = strings.TrimRight(title, "_")
+	}
 
 	ts := time.Now().Format("2006-01-02 15:04:05")
 	content := fmt.Sprintf("# %s\n\n## %s (%s)\n\n**Q:** %s\n\n**A:** %s", title, agentName, ts, question, reply)
